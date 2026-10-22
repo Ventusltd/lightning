@@ -1,0 +1,19 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "source": "EUMETSAT MTG Lightning Imager L2-LFL",
+    "source_url": "https://api.eumetsat.int/data/browse/collections/EO%3AEUM%3ADAT%3A0691?format=html",
+    "status": "awaiting_credentials",
+    "observation": "satellite optical flashes including in-cloud lightning; not verified ground strikes",
+    "coverage": "UK geographic bounds and neighbouring waters, not a national boundary",
+    "bounds_wsen": [
+      -11,
+      49.5,
+      3,
+      61.5
+    ],
+    "license": "EUMETSAT NoConditions; attribution required",
+    "latest_detection_utc": null
+  },
+  "features": []
+}
