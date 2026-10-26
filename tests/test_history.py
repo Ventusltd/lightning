@@ -401,6 +401,30 @@ class LightningHistoryTests(unittest.TestCase):
         self.assertEqual((today["coverage"], today["scanned_seconds"], today["count"]), ("none", 0, None))
         self.assertEqual(len(windows_from_run_record({**record, "slots_parsed": True})), 1)
 
+    # --- verify: strict bytes/sha256 and counts ----------------------------------
+    def test_verify_requires_bytes_and_sha256_and_matching_counts(self):
+        archive_observations(self.root, [self.flash(self.now - timedelta(hours=1), "v")], now=self.now)
+        self.assertEqual(verify_archive(self.root)["shards_checked"], 1)
+        index_path = self.root / "index.json"
+        good = json.loads(index_path.read_text())
+        for field in ("sha256", "bytes"):
+            index = json.loads(json.dumps(good))
+            row = rows_with_flashes(index)[0]
+            row[field] = None
+            index_path.write_text(json.dumps(index))
+            with self.assertRaisesRegex(ValueError, field):
+                verify_archive(self.root)
+        index = json.loads(json.dumps(good))
+        rows_with_flashes(index)[0]["count"] = 5  # bytes and sha256 still match the file
+        index_path.write_text(json.dumps(index))
+        with self.assertRaisesRegex(ValueError, "count"):
+            verify_archive(self.root)
+        index = json.loads(json.dumps(good))
+        index["days"][0].update({"coverage": "full", "scanned_seconds": 86400, "count": None})
+        index_path.write_text(json.dumps(index))
+        with self.assertRaisesRegex(ValueError, "count"):
+            verify_archive(self.root)
+
     # --- CLI --------------------------------------------------------------------
     def test_cli_ingest_and_verify(self):
         record_path = Path(self.temp.name) / "run.json"

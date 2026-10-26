@@ -82,6 +82,8 @@ jobs:
             --run-record "$RUNNER_TEMP/lightning-run-record.json" \
             --seed-scan-windows data/seed_scan_windows.json \
             --result-out "$RUNNER_TEMP/lightning-archive-result.json"
+          # Nothing unverified is committed: bytes, sha256 and counts vs the index.
+          python history.py verify --archive-dir data/history
 
       # 4. Always record the outcome: last attempt, last error, consecutive
       #    failures and the last successful scan end the next run looks back to.
@@ -103,8 +105,13 @@ jobs:
           # data/history does not exist and a combined pathspec aborts with 128,
           # losing the heartbeat.
           git add -A -- data/status.json
-          if [ -d data/history ]; then
+          if [ "${{ steps.archive.outcome }}" = "success" ] && [ -d data/history ]; then
             git add -A -- data/history
+          elif [ -d data/history ]; then
+            # A failed or unverified archive step is never committed: drop any
+            # half-written shard/index and keep the last committed archive.
+            git checkout -- data/history 2>/dev/null || true
+            git clean -fdq -- data/history
           fi
           if git diff --cached --quiet; then
             echo "No changed archive or status"

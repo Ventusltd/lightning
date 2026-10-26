@@ -267,8 +267,12 @@ def _plan_shards(day: str, records: list[dict], *, max_bytes: int, target_bytes:
     return plan
 
 
-def _verify_unchanged(archive_dir: Path, row: dict) -> None:
-    """Cheap verification of an untouched day against its previous index row."""
+def _verify_unchanged(archive_dir: Path, row: dict, *, strict: bool = False) -> None:
+    """Cheap verification of an untouched day against its previous index row.
+
+    ``strict`` (used by ``verify``) refuses a listed file whose row lacks
+    ``bytes`` or ``sha256`` instead of skipping that check.
+    """
     targets = []
     if row.get("path"):
         targets.append((row["path"], row.get("bytes"), row.get("sha256")))
@@ -278,6 +282,8 @@ def _verify_unchanged(archive_dir: Path, row: dict) -> None:
         file = archive_dir / rel
         if not file.exists():
             raise ValueError(f"{file}: listed in the index but missing on disk")
+        if strict and (size is None or not digest):
+            raise ValueError(f"{file}: index row lacks {'bytes' if size is None else 'sha256'}; cannot verify")
         content = file.read_text(encoding="utf-8")
         if size is not None and len(content.encode("utf-8")) != size:
             raise ValueError(f"{file}: size differs from the index; refusing to overwrite")
@@ -597,16 +603,36 @@ def load_seed_windows(path: Path | None) -> list[dict]:
 
 
 def verify_archive(archive_dir: Path) -> dict:
-    """Check every listed shard's bytes and sha256 against the index."""
+    """Check every listed shard against the index before it is committed.
+
+    Strict: bytes and sha256 must be present and match, each file's feature
+    count must equal its row (and part) count, and ``count`` must be null iff
+    coverage is none, with flashes always backed by a path or parts.
+    """
     archive_dir = Path(archive_dir)
     index = _load_old_index(archive_dir / "index.json")
     if index is None:
         raise ValueError("no index.json")
     checked = 0
     for row in index["days"]:
-        if row.get("path") or row.get("parts"):
-            _verify_unchanged(archive_dir, row)
-            checked += 1
+        day, count = row.get("date"), row.get("count")
+        if (count is None) != (row.get("coverage") == "none"):
+            raise ValueError(f"{day}: count must be null iff coverage is none")
+        listed = [(row["path"], count)] if row.get("path") else [(p["path"], p.get("count")) for p in row.get("parts") or []]
+        if count and not listed:
+            raise ValueError(f"{day}: count {count} without path or parts")
+        if not listed:
+            continue
+        _verify_unchanged(archive_dir, row, strict=True)
+        found = 0
+        for rel, expected in listed:
+            n = len(_read_features(archive_dir / rel, day))
+            if n != expected:
+                raise ValueError(f"{archive_dir / rel}: {n} features but the index count is {expected}")
+            found += n
+        if found != count:
+            raise ValueError(f"{day}: parts hold {found} features but the row count is {count}")
+        checked += 1
     return {"rows": len(index["days"]), "shards_checked": checked}
 
 

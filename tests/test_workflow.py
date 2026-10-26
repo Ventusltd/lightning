@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -94,6 +95,42 @@ class WorkflowShellTests(unittest.TestCase):
         self.git("fetch", "-q", "origin")
         self.assertTrue({"data/status.json", "data/history/index.json"} <= self.pushed_files())
 
+
+    # --- verify gate: nothing unverified is committed ---------------------------
+    def test_archive_step_runs_verify_after_ingest_and_fails_when_verify_fails(self):
+        bin_dir = Path(self.temp.name) / "bin"
+        bin_dir.mkdir()
+        (bin_dir / "python").symlink_to(sys.executable)
+        log = Path(self.temp.name) / "calls.log"
+        (self.repo / "history.py").write_text(  # stub: records the sub-command, fails on request
+            "import os, sys\n"
+            f"open({str(log)!r}, 'a').write(sys.argv[1] + '\\n')\n"
+            "sys.exit(1 if os.environ.get('FAIL_' + sys.argv[1].upper()) else 0)\n")
+        env = {"PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}", "RUNNER_TEMP": self.temp.name}
+        good = self.run_step(ARCHIVE_STEP, {}, env)
+        self.assertEqual(good.returncode, 0, good.stderr)
+        self.assertEqual(log.read_text().split(), ["ingest", "verify"])
+        bad = self.run_step(ARCHIVE_STEP, {}, {**env, "FAIL_VERIFY": "1"})
+        self.assertNotEqual(bad.returncode, 0)
+
+    def test_failed_archive_step_commits_status_only_and_restores_the_archive(self):
+        history_dir = self.repo / "data" / "history"
+        (history_dir / "days").mkdir(parents=True)
+        (history_dir / "index.json").write_text('{"committed": true}\n')
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "archive v1")
+        self.git("push", "-q")
+        (history_dir / "index.json").write_text('{"half": "written"}\n')  # ingest/verify failed mid-way
+        (history_dir / "days" / "partial.json").write_text("{}\n")
+        (self.repo / "data" / "status.json").write_text('{"archive": {"outcome": "failure"}}\n')
+        done = self.run_step(ARCHIVE_COMMIT, {"steps.archive.outcome": "failure"})
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.git("fetch", "-q", "origin")
+        files = self.pushed_files()
+        self.assertIn("data/status.json", files)
+        self.assertNotIn("data/history/days/partial.json", files)
+        self.assertEqual(self.git("show", "origin/main:data/history/index.json"), '{"committed": true}\n')
+        self.assertEqual(self.git("status", "--porcelain", "--", "data/history"), "")
 
 if __name__ == "__main__":
     unittest.main()
