@@ -82,6 +82,13 @@ class StatusTests(unittest.TestCase):
         self.assertIs(result["last_slots_parsed"], False)
         self.assertEqual(result["consecutive_failures"], 0)  # the feed run itself succeeded
 
+    def test_lost_days_reach_the_status_file(self):
+        result = build_status(now=NOW, previous=None, record=RECORD, archive_result={
+            "outcome": "success", "lost_days": ["2026-10-24"], "dropped_lost_day": 1},
+            collect_outcome="success", archive_outcome="success")
+        self.assertEqual(result["archive"]["lost_days"], ["2026-10-24"])
+        self.assertEqual(result["archive"]["dropped_lost_day"], 1)
+
     def test_health_thresholds(self):
         self.assertEqual(health(NOW, None), "never")
         self.assertEqual(health(NOW, NOW - timedelta(hours=5)), "ok")

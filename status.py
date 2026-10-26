@@ -118,6 +118,8 @@ def build_status(
             "files_changed": (archive_result or {}).get("files_changed"),
             "dropped_before_cutoff": (archive_result or {}).get("dropped_before_cutoff"),
             "split_days": (archive_result or {}).get("split_days"),
+            "lost_days": (archive_result or {}).get("lost_days"),
+            "dropped_lost_day": (archive_result or {}).get("dropped_lost_day"),
             "index_generated_utc": (archive_result or {}).get("index_generated_utc"),
         },
         "thresholds_hours": {"warn": STALE_WARN_HOURS, "stale": STALE_HOURS, "stopped": STOPPED_HOURS},
