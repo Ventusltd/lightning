@@ -391,6 +391,16 @@ class LightningHistoryTests(unittest.TestCase):
         self.assertEqual((row["coverage"], row["count"], row.get("parts")), ("none", None, None))
         self.assertEqual(result["lost_days"], ["2026-10-24"])
 
+    # --- D-3: unparsed product names are not examined slots ----------------------
+    def test_unparsed_slot_names_record_no_coverage(self):
+        record = {"outcome": "success", "products_examined": 2, "slots_parsed": False,
+                  "scanned_ranges": [{"start_utc": "2026-10-26T08:00:00.000Z", "end_utc": "2026-10-26T14:00:00.000Z"}]}
+        self.assertEqual(windows_from_run_record(record), [])
+        result = archive_observations(self.root, [], now=self.now, scanned_windows=windows_from_run_record(record))
+        today = {r["date"]: r for r in result["index"]["days"]}["2026-10-26"]
+        self.assertEqual((today["coverage"], today["scanned_seconds"], today["count"]), ("none", 0, None))
+        self.assertEqual(len(windows_from_run_record({**record, "slots_parsed": True})), 1)
+
     # --- CLI --------------------------------------------------------------------
     def test_cli_ingest_and_verify(self):
         record_path = Path(self.temp.name) / "run.json"

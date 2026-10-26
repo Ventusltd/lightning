@@ -578,6 +578,10 @@ def windows_from_run_record(record: dict) -> list[dict]:
     """Scan windows (one per examined range) from a collect.py run record."""
     if record.get("outcome") != "success" or int(record.get("products_examined") or 0) < 1:
         return []
+    if record.get("slots_parsed") is False:
+        # No product name carried a sensing slot, so scanned_ranges is the whole
+        # requested window including the unpublished tail: coverage stays unknown.
+        return []
     return [successful_scan(r["start_utc"], r["end_utc"], 1) for r in record.get("scanned_ranges", [])
             if parse_utc(r["end_utc"]) > parse_utc(r["start_utc"])]
 

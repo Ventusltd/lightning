@@ -71,6 +71,17 @@ class StatusTests(unittest.TestCase):
         self.assertIn("archive step failed", result["archive"]["error"])
         self.assertEqual(result["feed"]["features"], 411)
 
+    def test_unparsed_slots_do_not_advance_the_scan_end(self):
+        previous = build_status(now=NOW - timedelta(hours=1), previous=None, record=RECORD, archive_result=None,
+                                collect_outcome="success", archive_outcome="success")
+        opaque = {**RECORD, "run_utc": "2026-10-26T15:17:00.000Z", "slots_parsed": False, "scanned_ranges": [
+            {"start_utc": "2026-10-26T09:17:00.000Z", "end_utc": "2026-10-26T15:17:00.000Z"}]}
+        result = build_status(now=NOW + timedelta(hours=1), previous=previous, record=opaque, archive_result=None,
+                              collect_outcome="success", archive_outcome="success")
+        self.assertEqual(result["last_successful_scan_end_utc"], "2026-10-26T14:10:09.000Z")  # not the query end
+        self.assertIs(result["last_slots_parsed"], False)
+        self.assertEqual(result["consecutive_failures"], 0)  # the feed run itself succeeded
+
     def test_health_thresholds(self):
         self.assertEqual(health(NOW, None), "never")
         self.assertEqual(health(NOW, NOW - timedelta(hours=5)), "ok")

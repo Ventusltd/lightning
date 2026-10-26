@@ -74,7 +74,7 @@ def build_status(
     if collected:
         last_success_run = record["run_utc"]
         ranges = record.get("scanned_ranges") or []
-        if ranges:
+        if ranges and record.get("slots_parsed") is not False:  # unparsed = requested window, not examined slots
             end = max(parse_utc(r["end_utc"]) for r in ranges)
             start = min(parse_utc(r["start_utc"]) for r in ranges)
             if not last_success_end or end > parse_utc(last_success_end):
@@ -100,6 +100,7 @@ def build_status(
         "last_lookback_capped": (record or {}).get("lookback_capped"),
         "last_products_examined": (record or {}).get("products_examined"),
         "last_slots_examined": (record or {}).get("slots_examined"),
+        "last_slots_parsed": (record or {}).get("slots_parsed"),
         "last_slots_examined_utc": (record or {}).get("slots_examined_utc") if collected else None,
         "last_scanned_ranges": (record or {}).get("scanned_ranges") if collected else None,
         "last_unscanned_ranges": (record or {}).get("unscanned_ranges") if collected else None,
