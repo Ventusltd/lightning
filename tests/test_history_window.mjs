@@ -128,3 +128,20 @@ test('Archive network and invalid manifest failures are explicit, never fabricat
  await assert.rejects(()=>client.loadWindow(selectUtcWindow({period:'24h'})),/HTTP 503/);
  assert.equal(calls,2);
 });
+
+test('Historical requests outside actual retained year are rejected, not shown as zero',async()=>{
+ const f=fixtures();
+ const client=createLightningHistoryClient({indexUrl:base,fetchImpl:f.fetchImpl});
+ const beyond=selectUtcWindow({period:'7d',end:'2025-10-25T00:00:00Z'});
+ await assert.rejects(()=>client.loadWindow(beyond,{detail:true}),/precede available one-year archive/);
+ assert.deepEqual(f.requests,[base]);
+});
+
+test('Annual label shows observed dates from selection rather than global index',async()=>{
+ const f=fixtures();
+ const client=createLightningHistoryClient({indexUrl:base,fetchImpl:f.fetchImpl});
+ const selected=await client.loadWindow(selectUtcDates('2026-10-25','2026-10-25'));
+ const label=formatHistoryLabel(selected);
+ assert.match(label,/2026-10-25T01:00:00Z/);
+ assert.doesNotMatch(label,/2026-10-24T10:00:00Z/);
+});
