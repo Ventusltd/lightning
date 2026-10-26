@@ -88,7 +88,9 @@ export function formatHistoryLabel(result){
    :n+' flashes recorded on overlapping UTC dates; narrow dates for exact count';
  const actual=result.mode==='detail'
    ?'Actual detections '+(result.firstObservationUtc||'none archived')+' to '+(result.lastObservationUtc||'none archived')
-   :'Archive detections '+(index.first_observation_utc||'none archived')+' to '+(index.last_observation_utc||'none archived');
+   :'Observations within selected UTC dates '+
+     (result.selectedDays[0]?.first_observation_utc||'none archived')+' to '+
+     (result.selectedDays.at(-1)?.last_observation_utc||'none archived');
  return 'Selected '+pretty(w.start)+' to '+pretty(w.end)+' (exclusive end) · '+number+
    ' · '+actual+' · Refreshed '+index.generated_utc+
    ' · Historical gaps are unknown, not zero lightning';
@@ -130,6 +132,12 @@ export function createLightningHistoryClient({
  async function loadWindow(window,{detail=false,refreshIndex=false}={}){
   const w=selectUtcWindow({period:window.period,start:window.start,end:window.end});
   const m=await index({refresh:refreshIndex});
+  // Selecting an older interval is not the same thing as having historical
+  // data. Enforce the actual index retention horizon, not just span length.
+  const horizon=Date.parse(m.cutoff_date_utc+'T00:00:00Z');
+  if(!Number.isFinite(horizon))throw new TypeError('Lightning archive cutoff is missing');
+  if(Date.parse(w.start)<horizon)
+    throw new RangeError('Requested dates precede available one-year archive retention');
   const rows=chosenDays(m,w);
   const sum=rows.reduce((n,r)=>n+r.count,0);
   const result={mode:'overview',window:w,index:m,selectedDays:rows,
