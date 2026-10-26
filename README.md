@@ -40,3 +40,7 @@ python verify_parquet.py --archive-dir data/history --out data/parquet --if-arch
 ```
 
 The program requires the two EUMETSAT environment variables. No API keys should ever be committed. Download failures preserve the existing feed and archive and are recorded in `data/status.json`; unsearched time is unknown, not zero. Automatic rolling output is capped at 40,000 recent flash points for public mobile maps. The observations are not evidence that a particular building or installation was struck.
+
+## Licence
+
+Code: Apache License 2.0, the same licence as [GridAtlas](https://github.com/Ventusltd/gridatlas); see `LICENSE` and `NOTICE`. Data keeps its own terms: EUMETSAT LI L2-LFL (`NoConditions`, attribute EUMETSAT); OpenStreetMap-derived substation coordinates and proximity rollups (© OpenStreetMap contributors, ODbL 1.0, share-alike); NESO ETYS-derived names via data-grid-gb (terms to be confirmed).

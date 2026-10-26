@@ -1,0 +1,48 @@
+lightning
+Copyright 2026 Ventus Ltd
+
+Author: Vikram (Ventus Ltd)
+Project: GlobalGrid2050 | Ventus Core - Open Infrastructure Intelligence
+Site: globalgrid2050.com
+
+The UK lightning collector, its one-year archive tooling, the Parquet/DuckDB
+store and the tests that gate them; the data plane read by the Grid Atlas.
+
+Licensed under the Apache License, Version 2.0. You may not use this work
+except in compliance with that licence; a copy is in the LICENSE file beside
+this one, and at http://www.apache.org/licenses/LICENSE-2.0
+
+WHY THIS LICENCE, recorded so the choice can be argued with rather than
+guessed at:
+
+  The same licence as the Grid Atlas (Ventusltd/gridatlas), so code can move
+  between the map and its data plane without a licence boundary. This estate
+  exists to be adopted. Apache-2.0 grants the patent rights an adopter needs
+  alongside the copyright ones, which a permissive licence without a patent
+  grant does not, and it requires attribution to travel with the work rather
+  than relying on goodwill.
+
+  Built on public knowledge. The Ventus contribution is the architecture.
+  Licensed to the world. Misrepresentation is not permitted.
+
+WHAT THIS LICENCE DOES NOT COVER:
+
+  Third-party data this repository reads or redistributes keeps its own terms
+  and is not licensed by this file. That includes, where present:
+
+  - EUMETSAT Meteosat Third Generation Lightning Imager Level 2 Lightning
+    Flashes (LFL), collection EO:EUM:DAT:0691, listed with the NoConditions
+    data policy; attribution to EUMETSAT is retained in the feed, the archive
+    manifest, the Parquet metadata and the headline. The flashes are optical
+    detections, not confirmed ground strikes or electrical faults.
+  - OpenStreetMap substation coordinates, (c) OpenStreetMap contributors,
+    available under the Open Database Licence (ODbL 1.0); the extract and
+    every rollup that republishes those coordinates (including the 5/10/20 km
+    optical-flash proximity tables) are ODbL databases, and share-alike
+    applies to them, not Apache-2.0.
+  - NESO's Electricity Ten Year Statement appendices (site names, owners,
+    voltages) as derived by Ventusltd/data-grid-gb, whose terms are to be
+    confirmed by the owner before wider redistribution.
+
+  A licence granted here over material that was never the licensor's to grant
+  would be worth nothing to the adopter who relied on it.

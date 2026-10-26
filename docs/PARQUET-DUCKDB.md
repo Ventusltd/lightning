@@ -241,7 +241,9 @@ episode is a time cluster, not a storm cell.
 - **NESO**: site names, owners and voltages come from NESO's *Electricity Ten Year Statement
   2025*, Appendix B, as derived by data-grid-gb. data-grid-gb has no LICENSE file at the
   pinned commit, so **the owner should confirm the terms before wider redistribution.**
-- The code in this repository is under the repository's LICENSE.
+- The code in this repository is under the Apache License 2.0, the same licence as GridAtlas,
+  with a NOTICE in the same form (LICENSE is byte-identical to Ventusltd/gridatlas). NOTICE lists the
+  third-party data that keeps its own terms.
 
 ## Limitations
 
