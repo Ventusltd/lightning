@@ -1,0 +1,16 @@
+{
+ "schema": "uk-lightning.source-pin.v1",
+ "repository": "Ventusltd/data-grid-gb",
+ "commit": "5181de3423e4fe50c77c568b9f3066c61a1d9e41",
+ "commit_date_utc": "2026-09-03T04:02:57Z",
+ "path": "derived/connection-points.v3.json",
+ "raw_url": "https://raw.githubusercontent.com/Ventusltd/data-grid-gb/5181de3423e4fe50c77c568b9f3066c61a1d9e41/derived/connection-points.v3.json",
+ "upstream_schema": "data-grid-gb.connection-points.v3",
+ "bytes": 2934509,
+ "sha256": "8db7171d94763399d85c819e522dcb83ef1ecedc93fbeff032fb45ca02f81f35",
+ "attribution": {
+  "identities": "NESO, Electricity Ten Year Statement 2025, Appendix B (site names, owners, voltages), as derived by Ventusltd/data-grid-gb.",
+  "coordinates": "Map data (c) OpenStreetMap contributors, available under the Open Database Licence (ODbL 1.0), joined to ETYS identities by Ventusltd/data-grid-gb via the GridAtlas release.",
+  "licence_note": "The coordinates are OSM-derived: the ODbL attribution and share-alike terms apply to this extract and to rollups that publish them. data-grid-gb carries no LICENSE file at the pinned commit; the owner should confirm terms for the NESO-derived fields before wider redistribution."
+ }
+}

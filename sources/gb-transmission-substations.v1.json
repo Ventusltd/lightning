@@ -1,0 +1,4425 @@
+{
+ "schema": "uk-lightning.gb-transmission-substations.v1",
+ "what_this_is": "GB transmission connection points (132 kV and above) that data-grid-gb could locate, extracted for distance rollups only. A point is a joined map location, not a surveyed site boundary.",
+ "derived_from": {
+  "repository": "Ventusltd/data-grid-gb",
+  "commit": "5181de3423e4fe50c77c568b9f3066c61a1d9e41",
+  "path": "derived/connection-points.v3.json",
+  "sha256": "8db7171d94763399d85c819e522dcb83ef1ecedc93fbeff032fb45ca02f81f35",
+  "bytes": 2934509,
+  "upstream_schema": "data-grid-gb.connection-points.v3"
+ },
+ "attribution": {
+  "identities": "NESO, Electricity Ten Year Statement 2025, Appendix B (site names, owners, voltages), as derived by Ventusltd/data-grid-gb.",
+  "coordinates": "Map data (c) OpenStreetMap contributors, available under the Open Database Licence (ODbL 1.0), joined to ETYS identities by Ventusltd/data-grid-gb via the GridAtlas release.",
+  "licence_note": "The coordinates are OSM-derived: the ODbL attribution and share-alike terms apply to this extract and to rollups that publish them. data-grid-gb carries no LICENSE file at the pinned commit; the owner should confirm terms for the NESO-derived fields before wider redistribution."
+ },
+ "counts": {
+  "connection_points": 886,
+  "located": 489,
+  "unlocated_not_included": 397
+ },
+ "substations": [
+  {
+   "site_code": "ABHA",
+   "name": "ABHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.730355,
+   "lat": 50.471679,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ABNE",
+   "name": "ABERNETHY",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.294813,
+   "lat": 56.340273,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ABTB",
+   "name": "ABERTHAW B",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.403117,
+   "lat": 51.388379,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "ABTH",
+   "name": "ABERTHAW",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.403117,
+   "lat": 51.388379,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ALDW",
+   "name": "ALDWARKE",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.320609,
+   "lat": 53.445486,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ALNE",
+   "name": "ALNESS GSP",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.274514,
+   "lat": 57.708254,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ALVE",
+   "name": "ALVERDISCOTT",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -4.136943,
+   "lat": 51.005884,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ALYT",
+   "name": "ALYTH",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -3.161945,
+   "lat": 56.609751,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "AMEM",
+   "name": "AMERSHAM MAIN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.655988,
+   "lat": 51.664927,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ANSU",
+   "name": "AN SUIDHE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -5.144986,
+   "lat": 56.197902,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ARBR",
+   "name": "ARBROATH",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.619604,
+   "lat": 56.56398,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ARDK",
+   "name": "ARDKINGLAS WIND",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.922266,
+   "lat": 56.277113,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "AREC",
+   "name": "ARECLEOCH",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.849958,
+   "lat": 55.084036,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ARMO",
+   "name": "ARDMORE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -6.645354,
+   "lat": 57.554416,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "AUCH",
+   "name": "AUCHENCROSH",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.980757,
+   "lat": 55.069696,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "AUCW",
+   "name": "AUCHENWYND",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.684079,
+   "lat": 55.342038,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "AXMI",
+   "name": "AXMINSTER",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.924451,
+   "lat": 50.786831,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "AYR-",
+   "name": "AYR",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.58796,
+   "lat": 55.457351,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BAGA",
+   "name": "BATHGATE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.672393,
+   "lat": 55.899652,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BAGB",
+   "name": "BAGLAN BAY",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.832479,
+   "lat": 51.61699,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BAIN",
+   "name": "BAINSFORD",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.767787,
+   "lat": 56.013793,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BARK",
+   "name": "BARKING",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.114221,
+   "lat": 51.521184,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BEAU",
+   "name": "BEAULY",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -4.492046,
+   "lat": 57.467729,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BEDD",
+   "name": "BEDDINGTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.127559,
+   "lat": 51.373308,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BENB",
+   "name": "BENBRACK WIND FARM",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.303567,
+   "lat": 55.274782,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BENR",
+   "name": "BENGEWORTH ROAD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.096816,
+   "lat": 51.4672,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "BERB",
+   "name": "BERRY BURN",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -3.599319,
+   "lat": 57.504073,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BERW",
+   "name": "BERWICK",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -2.078636,
+   "lat": 55.777414,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BESW",
+   "name": "BERKSWELL",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.615485,
+   "lat": 52.386059,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BHLA",
+   "name": "BHLARAIDH WIND FARM",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.703357,
+   "lat": 57.244286,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BICF",
+   "name": "BICKER FEN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.220935,
+   "lat": 52.931404,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BIRK",
+   "name": "BIRKENHEAD",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.061805,
+   "lat": 53.365815,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BISW",
+   "name": "BISHOPS WOOD",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.242291,
+   "lat": 52.312461,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BLAH",
+   "name": "BLACKHILL",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.188206,
+   "lat": 55.317895,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BLCW",
+   "name": "BLACKCRAIG",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.056825,
+   "lat": 55.128768,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BLHI",
+   "name": "BLACKHILLOCK",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -2.948539,
+   "lat": 57.523227,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BLYT",
+   "name": "BLYTH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.531373,
+   "lat": 55.141172,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BOAG",
+   "name": "BOAT OF GARTEN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.731918,
+   "lat": 57.253626,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BODE",
+   "name": "BODELWYDDAN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.474123,
+   "lat": 53.24998,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BOLN",
+   "name": "BOLNEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.234787,
+   "lat": 50.975263,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BONN",
+   "name": "BONNYBRIDGE",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.86071,
+   "lat": 56.007605,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "BOTW",
+   "name": "BOTLEY WOOD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.23254,
+   "lat": 50.884795,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRAI",
+   "name": "BRAINTREE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.57601,
+   "lat": 51.865779,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRAP",
+   "name": "BRAEHEAD PARK",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.381188,
+   "lat": 55.88082,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRAW",
+   "name": "BRADFORD WEST",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.865992,
+   "lat": 53.810366,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRCW",
+   "name": "BRACO WEST",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -3.947352,
+   "lat": 56.261933,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BREC",
+   "name": "BRECHIN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.628173,
+   "lat": 56.740186,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRED",
+   "name": "BREDBURY",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.129643,
+   "lat": 53.414726,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRFO",
+   "name": "BRAMFORD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 1.060947,
+   "lat": 52.071249,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRID",
+   "name": "BRIDGE OF DUN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.556852,
+   "lat": 56.720383,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRIM",
+   "name": "BRIMSDOWN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.024492,
+   "lat": 51.663708,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "BRIN",
+   "name": "BRINSWORTH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.351249,
+   "lat": 53.401404,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRLE",
+   "name": "BRAMLEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.077429,
+   "lat": 51.336444,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRNX",
+   "name": "BRANXTON",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -2.416749,
+   "lat": 55.948824,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BROA",
+   "name": "BROADFORD",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -5.93601,
+   "lat": 57.248024,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BROR",
+   "name": "BRORA",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.87492,
+   "lat": 58.019981,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BROX",
+   "name": "BROXBURN",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.453653,
+   "lat": 55.919434,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BRWA",
+   "name": "BRIDGWATER",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.969152,
+   "lat": 51.117312,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BUMU",
+   "name": "BURGHMUIR",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.48762,
+   "lat": 56.396701,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BUSB",
+   "name": "BUSBY",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.26229,
+   "lat": 55.774331,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "BUSH",
+   "name": "BUSHBURY",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.114617,
+   "lat": 52.636339,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "BUST",
+   "name": "BUSTLEHOLME",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.962091,
+   "lat": 52.553207,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CAAD",
+   "name": "CARRADALE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -5.50264,
+   "lat": 55.590263,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CAFA",
+   "name": "CARSFAD",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.189565,
+   "lat": 55.143248,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CAIN",
+   "name": "CAIRNFORD",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -2.84987,
+   "lat": 57.451991,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CAMA",
+   "name": "CAMBRIDGE ARMS",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -2.381276,
+   "lat": 51.741524,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "CANT",
+   "name": "CANTERBURY NORTH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 1.096255,
+   "lat": 51.293789,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CAPE",
+   "name": "CAPENHURST",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.947157,
+   "lat": 53.267467,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CARE",
+   "name": "CARDIFF EAST",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.145422,
+   "lat": 51.495106,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CASS",
+   "name": "CASSLEY",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.729242,
+   "lat": 58.187604,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CATY",
+   "name": "CARNTYNE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.197175,
+   "lat": 55.857291,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CCSS",
+   "name": "CUMBERHEAD COLLECTOR",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.925516,
+   "lat": 55.58184,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CELL",
+   "name": "CELLARHEAD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.083728,
+   "lat": 53.040703,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CHAP",
+   "name": "CHAPELCROSS",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.229639,
+   "lat": 55.016463,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CHAR",
+   "name": "CHARLESTON",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.044839,
+   "lat": 56.474085,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CHAS",
+   "name": "CHARLOTTE STREET",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.239746,
+   "lat": 55.855208,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CHIC",
+   "name": "CHICKERELL",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.487543,
+   "lat": 50.62389,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CHSI",
+   "name": "CHESSINGTON",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -0.322951,
+   "lat": 51.343696,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CHTE",
+   "name": "CHESTERFIELD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.38794,
+   "lat": 53.224421,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "CILF",
+   "name": "CILFYNYDD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.300596,
+   "lat": 51.635772,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "CITR",
+   "name": "CITY ROAD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.095849,
+   "lat": 51.530405,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CLAY",
+   "name": "CLAYHILLS",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.098697,
+   "lat": 57.140108,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CLEH",
+   "name": "CLEVE HILL",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.94049,
+   "lat": 51.338198,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CLTO",
+   "name": "CLACTON",
+   "transmission_owner": "OFTO",
+   "max_kv": 132,
+   "lon": 1.179387,
+   "lat": 51.825867,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CLUN",
+   "name": "CLUNIE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.783783,
+   "lat": 56.717008,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CLYM",
+   "name": "CLYDE'S MILL",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -4.149291,
+   "lat": 55.82285,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "CLYN",
+   "name": "CLYDE NORTH",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.6038,
+   "lat": 55.465173,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CLYS",
+   "name": "CLYDE SOUTH",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.609036,
+   "lat": 55.404654,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COAL",
+   "name": "COALBURN",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.867329,
+   "lat": 55.615363,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COAT",
+   "name": "COATBRIDGE",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.013221,
+   "lat": 55.851204,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COCK",
+   "name": "COCKENZIE",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -2.968062,
+   "lat": 55.966747,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "COGA",
+   "name": "CORRIEGARTH WIND FARM",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.401822,
+   "lat": 57.192117,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CONN",
+   "name": "CONNAGILL",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -3.879166,
+   "lat": 58.512123,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CONQ",
+   "name": "CONNAHS QUAY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.074022,
+   "lat": 53.229905,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "CORI",
+   "name": "CORRIEMOILLIE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.769015,
+   "lat": 57.634366,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COSO",
+   "name": "CORYTON SOUTH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.506726,
+   "lat": 51.512856,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COTT",
+   "name": "COTTAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.781375,
+   "lat": 53.300747,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COUA",
+   "name": "COUPAR ANGUS",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.273485,
+   "lat": 56.538319,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COVE",
+   "name": "COVENTRY",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.46349,
+   "lat": 52.455992,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COWL",
+   "name": "COWLEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.190496,
+   "lat": 51.711149,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COWT",
+   "name": "COWBRIDGE TEE",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.40703,
+   "lat": 51.486976,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "COYL",
+   "name": "COYLTON",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.431977,
+   "lat": 55.446815,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CPCR",
+   "name": "CHAPELCROSS PV",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.229639,
+   "lat": 55.016463,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "CRAI",
+   "name": "CRAIGIEBUCKLER",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.153984,
+   "lat": 57.131168,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CRAR",
+   "name": "CRARAE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -5.265131,
+   "lat": 56.13186,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CREA",
+   "name": "CREAG RIABHACH WINDFARM",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.503682,
+   "lat": 58.210658,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CREB",
+   "name": "CREYKE BECK",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.415157,
+   "lat": 53.800456,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CROO",
+   "name": "CROOKSTON",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.364743,
+   "lat": 55.821206,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CRUA",
+   "name": "CRUACHAN",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -5.112808,
+   "lat": 56.402782,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CRYR",
+   "name": "CRYSTAL RIG",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -2.539765,
+   "lat": 55.914985,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CUJT",
+   "name": "CULHAM JET TEE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.228259,
+   "lat": 51.661085,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "CULJ",
+   "name": "CULHAM JET",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.228259,
+   "lat": 51.661085,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CULL",
+   "name": "CULLIGRAN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.702706,
+   "lat": 57.425547,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CUMB",
+   "name": "CUMBERNAULD",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.96385,
+   "lat": 55.946913,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "CUPA",
+   "name": "CUPAR",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.035848,
+   "lat": 56.313567,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "CURR",
+   "name": "CURRIE",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.308836,
+   "lat": 55.902286,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DAAS",
+   "name": "DALLAS SUBSTATION",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -3.420326,
+   "lat": 57.556811,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DAIN",
+   "name": "DAINES",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.379263,
+   "lat": 53.425959,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DALL",
+   "name": "DALMALLY",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -5.013441,
+   "lat": 56.420056,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DALM",
+   "name": "DALMARNOCK",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.203841,
+   "lat": 55.835445,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DAMC",
+   "name": "DAMHEAD CREEK",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.601579,
+   "lat": 51.424439,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DEAN",
+   "name": "DEANIE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.844101,
+   "lat": 57.407374,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DENN",
+   "name": "DENNY NORTH",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.889412,
+   "lat": 56.039489,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DESA",
+   "name": "DERSALLOCH",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.469521,
+   "lat": 55.319096,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DEVM",
+   "name": "DEVOL MOOR",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -4.708825,
+   "lat": 55.915867,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DEVO",
+   "name": "DEVONSIDE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.779542,
+   "lat": 56.137192,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DEWP",
+   "name": "DEWAR PLACE",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.210179,
+   "lat": 55.947001,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DIDC",
+   "name": "DIDCOT",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.259198,
+   "lat": 51.625647,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DLCH",
+   "name": "DALCHORK",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.404095,
+   "lat": 58.051612,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DORE",
+   "name": "DORENELL WIND FARM",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.098501,
+   "lat": 57.377836,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DOUN",
+   "name": "DOUNREAY",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -3.753721,
+   "lat": 58.575726,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DRAK",
+   "name": "DRAKELOW",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.651682,
+   "lat": 52.77324,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DRAX",
+   "name": "DRAX",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.992491,
+   "lat": 53.736219,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DRCR",
+   "name": "DRUMCROSS",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.587657,
+   "lat": 55.906483,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DRUM",
+   "name": "DRUMCHAPEL",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.34924,
+   "lat": 55.915543,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DUBE",
+   "name": "DUNBEATH",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.434269,
+   "lat": 58.265615,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DUDH",
+   "name": "DUDHOPE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.978282,
+   "lat": 56.463217,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DUGR",
+   "name": "DUNVEGAN GRID",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -6.539592,
+   "lat": 57.432639,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DUMF",
+   "name": "DUMFRIES",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.591128,
+   "lat": 55.067649,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DUNB",
+   "name": "DUNBAR",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -2.57358,
+   "lat": 55.977321,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DUNG",
+   "name": "DUNGENESS",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.947534,
+   "lat": 50.914542,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DUNM",
+   "name": "DUNMAGLASS",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.307195,
+   "lat": 57.270735,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DUNO",
+   "name": "DUNOON",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.94786,
+   "lat": 55.975665,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "DYCE",
+   "name": "DYCE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.189942,
+   "lat": 57.215762,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "EALI",
+   "name": "EALING",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -0.295943,
+   "lat": 51.50185,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "EASO",
+   "name": "EATON SOCON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.301667,
+   "lat": 52.214622,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "EAST",
+   "name": "EARLSTOUN",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.17408,
+   "lat": 55.11221,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ECCF",
+   "name": "ECCLEFECHAN",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.284983,
+   "lat": 55.066021,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ECCL",
+   "name": "ECCLES",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -2.329617,
+   "lat": 55.669299,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ECLA",
+   "name": "EAST CLAYDON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.906992,
+   "lat": 51.926329,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "EDIN",
+   "name": "EDINBANE 132/33KV",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -6.413928,
+   "lat": 57.410171,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "EERH",
+   "name": "EASTERHOUSE",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.07451,
+   "lat": 55.879082,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "EGGB",
+   "name": "EGGBOROUGH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.1299,
+   "lat": 53.713529,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "EKIL",
+   "name": "EAST KILBRIDE",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.193879,
+   "lat": 55.785891,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "EKIS",
+   "name": "EAST KILBRIDE SOUTH",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.16327,
+   "lat": 55.74088,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ELDE",
+   "name": "ELDERSLIE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.464077,
+   "lat": 55.8406,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ELGI",
+   "name": "ELGIN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.321173,
+   "lat": 57.664753,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ELLA",
+   "name": "ELLAND",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.822745,
+   "lat": 53.694397,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ELST",
+   "name": "ELSTREE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.343476,
+   "lat": 51.660401,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ELVA",
+   "name": "ELVANFOOT",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.672555,
+   "lat": 55.437356,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ENDE",
+   "name": "ENDERBY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.216819,
+   "lat": 52.597639,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ENHI",
+   "name": "ENOCH HILL WIND FARM",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.28197,
+   "lat": 55.354087,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ERRO",
+   "name": "ERROCHTY",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.011247,
+   "lat": 56.707015,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "ERSK",
+   "name": "ERSKINE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.482884,
+   "lat": 55.904157,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "EWEH",
+   "name": "EWE HILL",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.178428,
+   "lat": 55.142115,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "EXET",
+   "name": "EXETER",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.405299,
+   "lat": 50.767576,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FAAR",
+   "name": "FARR WINDFARM",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.160369,
+   "lat": 57.336146,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FALL",
+   "name": "FALLAGO",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -2.664906,
+   "lat": 55.825035,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FARI",
+   "name": "FARIGAIG",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -4.374695,
+   "lat": 57.317564,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FASN",
+   "name": "FASNAKYLE",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -4.793114,
+   "lat": 57.329521,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FAUG",
+   "name": "FORT AUGUSTUS",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -4.718225,
+   "lat": 57.135043,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FAWL",
+   "name": "FAWLEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.328668,
+   "lat": 50.821691,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FECK",
+   "name": "FECKENHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.972824,
+   "lat": 52.250999,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FETT",
+   "name": "FETTERESSO",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -2.347203,
+   "lat": 56.964454,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "FFES",
+   "name": "FFESTINIOG",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.968927,
+   "lat": 52.980778,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "FIDD",
+   "name": "FIDDES",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.301944,
+   "lat": 56.924592,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FIDF",
+   "name": "FIDDLERS FERRY",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.688966,
+   "lat": 53.371417,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FINN",
+   "name": "FINNIESTON",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.286179,
+   "lat": 55.863428,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FLEE",
+   "name": "FLEET",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.881396,
+   "lat": 51.250916,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FOUR",
+   "name": "FOURSTONES",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.163917,
+   "lat": 55.011789,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FOYE",
+   "name": "FOYERS",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -4.474144,
+   "lat": 57.268591,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FRAS",
+   "name": "FRASERBURGH",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.024114,
+   "lat": 57.686258,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FROD",
+   "name": "FRODSHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.716178,
+   "lat": 53.309226,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FWIL",
+   "name": "FORT WILLIAM",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -5.078726,
+   "lat": 56.820951,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "FYRI",
+   "name": "FYRISH",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -4.299867,
+   "lat": 57.698918,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GALA",
+   "name": "GALASHIELS",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -2.771342,
+   "lat": 55.61037,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GART",
+   "name": "GARTH CABLE COMPOUND",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -4.090136,
+   "lat": 52.928072,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GAWH",
+   "name": "GALAWHISTLE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.945933,
+   "lat": 55.562817,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GGON",
+   "name": "GREATER GABBARD ONSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 132,
+   "lon": 1.610878,
+   "lat": 52.208546,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GIFF",
+   "name": "GIFFNOCK",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.299721,
+   "lat": 55.798614,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GLAG",
+   "name": "GLENAGNES",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.996698,
+   "lat": 56.461778,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GLEN",
+   "name": "GLENMORISTON",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.719845,
+   "lat": 57.201746,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GLFA",
+   "name": "GLENFARCLAS",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.315967,
+   "lat": 57.41598,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GLGL",
+   "name": "GLENGLASS",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.018033,
+   "lat": 55.337101,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GLLE",
+   "name": "GLENLEE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.18546,
+   "lat": 55.099164,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GLLU",
+   "name": "GLENLUCE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.807845,
+   "lat": 54.882118,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GLNI",
+   "name": "GLENNISTON",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.271257,
+   "lat": 56.111217,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GLRO",
+   "name": "GLENROTHES",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.200999,
+   "lat": 56.207031,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GORG",
+   "name": "GORGIE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.23666,
+   "lat": 55.935915,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GORW",
+   "name": "GORDONBUSH WINDFARM",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -3.956886,
+   "lat": 58.114282,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GOVA",
+   "name": "GOVAN",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.315893,
+   "lat": 55.854902,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GRAI",
+   "name": "GRAIN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.712806,
+   "lat": 51.445104,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "GREN",
+   "name": "GRENDON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.727703,
+   "lat": 52.243082,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GRIF",
+   "name": "GRIFFIN WINDFARM (SSE)",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.775477,
+   "lat": 56.563614,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GRIW",
+   "name": "GRIMSBY WEST",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.151464,
+   "lat": 53.565823,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GRMO",
+   "name": "GRANGEMOUTH",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.693758,
+   "lat": 56.004539,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GRNA",
+   "name": "GRETNA",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.050548,
+   "lat": 55.032647,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "GRST",
+   "name": "GREYSTONES",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.131067,
+   "lat": 54.575867,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "HACK",
+   "name": "HACKNEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.042622,
+   "lat": 51.559009,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HADH",
+   "name": "HADYARD HILL",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.707013,
+   "lat": 55.25023,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HAGR",
+   "name": "HAGGS ROAD",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.296498,
+   "lat": 55.830042,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HAMH",
+   "name": "HAMS HALL",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.714248,
+   "lat": 52.53106,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HARE",
+   "name": "HARESTANES",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.561762,
+   "lat": 55.263646,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HARG",
+   "name": "HARKER GIS",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.961683,
+   "lat": 54.942439,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "HARI",
+   "name": "HARRIS",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -6.830174,
+   "lat": 57.845588,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HARK",
+   "name": "HARKER",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.961683,
+   "lat": 54.942439,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HARM",
+   "name": "HARTMOOR",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.29204,
+   "lat": 54.700664,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HATL",
+   "name": "HARTLEPOOL",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.183256,
+   "lat": 54.635657,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HAWI",
+   "name": "HAWICK",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -2.80176,
+   "lat": 55.432981,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HAWP",
+   "name": "HAWTHORN PIT",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.402878,
+   "lat": 54.805363,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HEDO",
+   "name": "HEDON (GIS)",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -0.231234,
+   "lat": 53.747464,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "HELE",
+   "name": "HELENSBURGH",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.708675,
+   "lat": 56.023453,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HEYS",
+   "name": "HEYSHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.890341,
+   "lat": 54.032343,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HIBU",
+   "name": "HIGHBURY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.1135,
+   "lat": 51.561495,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HIGB",
+   "name": "HIGH MARNHAM-B",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.793741,
+   "lat": 53.228098,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "HIGM",
+   "name": "HIGH MARNHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.793741,
+   "lat": 53.228098,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HINP",
+   "name": "HINKLEY POINT",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.127657,
+   "lat": 51.206783,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "HOWW",
+   "name": "HORNSEA OFFSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 400,
+   "lon": -0.260744,
+   "lat": 53.658217,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HUER",
+   "name": "HUNTERSTON",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -4.890811,
+   "lat": 55.720041,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HUMO",
+   "name": "HUMBER GATEWAY ONSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 275,
+   "lon": -0.231719,
+   "lat": 53.747031,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HUMW",
+   "name": "HUMBER GATEWAY OFFSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 132,
+   "lon": 0.252786,
+   "lat": 53.658545,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HUNE",
+   "name": "HUNTERSTON EAST",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -4.887247,
+   "lat": 55.720043,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HUNN",
+   "name": "HUNTERSTON NORTH",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -4.885648,
+   "lat": 55.721417,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "HUTT",
+   "name": "HUTTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.670316,
+   "lat": 54.297737,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "IMPP",
+   "name": "IMPERIAL PARK",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.031015,
+   "lat": 51.547823,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "INCE",
+   "name": "INCE",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -2.811292,
+   "lat": 53.277877,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "INDQ",
+   "name": "INDIAN QUEENS",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -4.899666,
+   "lat": 50.394926,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "INGA",
+   "name": "INVERGARRY",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.773873,
+   "lat": 57.072022,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "INKE",
+   "name": "INVERKEITHING",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.389686,
+   "lat": 56.042229,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "INNE",
+   "name": "INVERNESS",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.246891,
+   "lat": 57.4539,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "INVE",
+   "name": "INVERARAY",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -5.041727,
+   "lat": 56.261892,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "INVR",
+   "name": "INVERARNAN",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -4.724596,
+   "lat": 56.324098,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "IROA",
+   "name": "IRON ACTON",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.480838,
+   "lat": 51.569459,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "IRON",
+   "name": "IRONBRIDGE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.512435,
+   "lat": 52.632088,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ISLI",
+   "name": "ISLINGTON",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -0.1157,
+   "lat": 51.550022,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "IVER",
+   "name": "IVER",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.497885,
+   "lat": 51.543402,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "JOHN",
+   "name": "JOHNSTONE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.506023,
+   "lat": 55.845275,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "JORD",
+   "name": "JORDANTHORPE",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.458405,
+   "lat": 53.329667,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KAIM",
+   "name": "KAIMES",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.165406,
+   "lat": 55.891536,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KEAD",
+   "name": "KEADBY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.755933,
+   "lat": 53.598046,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KEAR",
+   "name": "KEARSLEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.357959,
+   "lat": 53.538181,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KEIC",
+   "name": "KEITH GREENER GRID PARK",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.941894,
+   "lat": 57.540269,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KEIT",
+   "name": "KEITH",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -2.938336,
+   "lat": 57.540301,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KEMS",
+   "name": "KEMSLEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.741651,
+   "lat": 51.368333,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KENG",
+   "name": "KENSAL GREEN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.224156,
+   "lat": 51.526235,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KEOO",
+   "name": "KENDOON",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.190945,
+   "lat": 55.163669,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KIBY",
+   "name": "KIRKBY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.848297,
+   "lat": 53.469089,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "KIER",
+   "name": "KILLERMONT",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.309989,
+   "lat": 55.903303,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KIIN",
+   "name": "KILLIN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.329493,
+   "lat": 56.476979,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KILB",
+   "name": "KILBOWIE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.410127,
+   "lat": 55.918897,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KILG",
+   "name": "KILGALLIOCH",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.763673,
+   "lat": 55.049358,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KILL",
+   "name": "KILLINGHOLME",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.256418,
+   "lat": 53.65581,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KILS",
+   "name": "KILMARNOCK SOUTH",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -4.463312,
+   "lat": 55.576297,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KILT",
+   "name": "KILMARNOCK TOWN",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.495476,
+   "lat": 55.597839,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KILW",
+   "name": "KILWINNING",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.680515,
+   "lat": 55.665246,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KINA",
+   "name": "KINARDOCHY",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -4.00606,
+   "lat": 56.676921,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "KINC",
+   "name": "KINCARDINE",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.730662,
+   "lat": 56.075079,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KINO",
+   "name": "KINGSNORTH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.598536,
+   "lat": 51.418566,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KINT",
+   "name": "KINTORE",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -2.385328,
+   "lat": 57.21876,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KIRK",
+   "name": "KIRKSTALL",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.597985,
+   "lat": 53.806289,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "KITW",
+   "name": "KITWELL",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.01334,
+   "lat": 52.431132,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KNAR",
+   "name": "KNARESBOROUGH",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.487627,
+   "lat": 54.031265,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "KNOC",
+   "name": "KNOCKNAGAEL",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -4.245769,
+   "lat": 57.421981,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LACK",
+   "name": "LACKENBY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.131673,
+   "lat": 54.566811,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LAGA",
+   "name": "LANGAGE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -4.012753,
+   "lat": 50.389053,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LAIR",
+   "name": "LAIRG",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.393101,
+   "lat": 58.030543,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LAMB",
+   "name": "LAMBHILL",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -4.256733,
+   "lat": 55.903042,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "LAND",
+   "name": "LANDULPH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -4.242551,
+   "lat": 50.444703,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LEGA",
+   "name": "LEGACY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.053197,
+   "lat": 53.028776,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LEIB",
+   "name": "LEIGHTON BUZZARD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.677629,
+   "lat": 51.904415,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LEIS",
+   "name": "LEISTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 1.61127,
+   "lat": 52.208073,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "LEMR",
+   "name": "LEA MARSTON",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -1.708636,
+   "lat": 52.527823,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LEVE",
+   "name": "LEVEN",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.039172,
+   "lat": 56.198964,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LEVT",
+   "name": "LEVEN TEE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.039172,
+   "lat": 56.198964,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "LING",
+   "name": "LIVINGSTON",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.492679,
+   "lat": 55.882468,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "LINM",
+   "name": "LINNMILL",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.826399,
+   "lat": 55.671533,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LISD",
+   "name": "LISTER DRIVE",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.925174,
+   "lat": 53.418701,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LITB",
+   "name": "LITTLE BARFORD",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -0.270336,
+   "lat": 52.206922,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LITT",
+   "name": "LITTLEBROOK",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.237649,
+   "lat": 51.463635,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LOAN",
+   "name": "LONGANNET",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.681581,
+   "lat": 56.051039,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LOCB",
+   "name": "LOCH BUIDHE",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -4.274565,
+   "lat": 57.949854,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LOCH",
+   "name": "LOCHAY",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.364111,
+   "lat": 56.484628,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LOVE",
+   "name": "LOVEDEAN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.039762,
+   "lat": 50.917038,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LUIC",
+   "name": "LUICHART",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.689404,
+   "lat": 57.575611,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LUNA",
+   "name": "LUNANHEAD",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.865387,
+   "lat": 56.654416,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "LYND",
+   "name": "LYNDHURST",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.017453,
+   "lat": 56.481131,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MACC",
+   "name": "MACCLESFIELD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.120901,
+   "lat": 53.268628,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MACD",
+   "name": "MACDUFF",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.498528,
+   "lat": 57.664015,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MAGA",
+   "name": "MARGAM",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.753909,
+   "lat": 51.562914,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MAHI",
+   "name": "MARK HILL",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.766311,
+   "lat": 55.137597,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MANN",
+   "name": "MANNINGTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.895325,
+   "lat": 50.846826,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MARH",
+   "name": "MARKET HARBOROUGH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.885631,
+   "lat": 52.464423,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MARV",
+   "name": "MARSTON VALE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.528789,
+   "lat": 52.051951,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MAYB",
+   "name": "MAYBOLE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.685423,
+   "lat": 55.342253,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MAYT",
+   "name": "MAYBOLE TEE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.685423,
+   "lat": 55.342253,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "MEAD",
+   "name": "MEADOWHEAD",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.638171,
+   "lat": 55.584107,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MEDW",
+   "name": "MEDWAY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.715789,
+   "lat": 51.444767,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MELG",
+   "name": "MELGARVE SUBSTATION",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -4.470457,
+   "lat": 57.027283,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MELK",
+   "name": "MELKSHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.150672,
+   "lat": 51.393422,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MIDL",
+   "name": "MIDDLETON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.885391,
+   "lat": 54.03487,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MILC",
+   "name": "MILTON OF CRAIGIE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.924794,
+   "lat": 56.475192,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MILH",
+   "name": "MILL HILL",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -0.209127,
+   "lat": 51.617847,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MITY",
+   "name": "MINETY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.002039,
+   "lat": 51.607583,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MOFF",
+   "name": "MOFFAT",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.428381,
+   "lat": 55.300854,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MONF",
+   "name": "MONK FRYSTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.266405,
+   "lat": 53.756227,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MORO",
+   "name": "MORAY EAST ONSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 220,
+   "lon": -2.282835,
+   "lat": 57.490172,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "MOSM",
+   "name": "MOSSMORRAN",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.292923,
+   "lat": 56.105948,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "MYBS",
+   "name": "MYBSTER",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.423661,
+   "lat": 58.446944,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NAIR",
+   "name": "NAIRN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -3.848416,
+   "lat": 57.576647,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NEAR",
+   "name": "NEWARTHILL",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.94578,
+   "lat": 55.824402,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NECH",
+   "name": "NECHELLS",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.852242,
+   "lat": 52.506862,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "NECL",
+   "name": "EAST CLAYDON (NEW)",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.906992,
+   "lat": 51.926329,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "NECT",
+   "name": "NECTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.79381,
+   "lat": 52.661104,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NECU",
+   "name": "NEW CUMNOCK",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.335033,
+   "lat": 55.344502,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NEDE",
+   "name": "NEW DEER",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -2.284993,
+   "lat": 57.490947,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NEEP",
+   "name": "NEEPSEND",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.488271,
+   "lat": 53.406101,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NEIL",
+   "name": "NEILSTON",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -4.479694,
+   "lat": 55.808032,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NERY",
+   "name": "NEW RYHALL",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.452316,
+   "lat": 52.688197,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "NETS",
+   "name": "NEWTON STEWART",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.498901,
+   "lat": 54.953406,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NEWX",
+   "name": "NEW CROSS",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.059065,
+   "lat": 51.483773,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NFLE",
+   "name": "NORTHFLEET EAST",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.329885,
+   "lat": 51.42831,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NHYD",
+   "name": "NORTH HYDE",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -0.411091,
+   "lat": 51.499877,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NINF",
+   "name": "NINFIELD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.448545,
+   "lat": 50.881277,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NORL",
+   "name": "NORTON LEES",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.471576,
+   "lat": 53.348593,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NORM",
+   "name": "NORWICH MAIN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 1.272272,
+   "lat": 52.574029,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NORT",
+   "name": "NORTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.364625,
+   "lat": 54.592174,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "NURS",
+   "name": "NURSLING",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.487205,
+   "lat": 50.941887,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "OCKH",
+   "name": "OCKER HILL",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.029496,
+   "lat": 52.542138,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "OFFE",
+   "name": "OFFERTON",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.457771,
+   "lat": 54.880935,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "OLDB",
+   "name": "OLDBURY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.026049,
+   "lat": 52.498355,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "ORMO",
+   "name": "ORMONDE ONSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 132,
+   "lon": -2.887414,
+   "lat": 54.03276,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "OSBA",
+   "name": "OSBALDWICK",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.023051,
+   "lat": 53.956814,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PADI",
+   "name": "PADIHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.321054,
+   "lat": 53.795358,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PAFB",
+   "name": "PATFORD BRIDGE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.055198,
+   "lat": 52.291687,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PAIS",
+   "name": "PAISLEY",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.413013,
+   "lat": 55.840418,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PART",
+   "name": "PARTICK",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.316306,
+   "lat": 55.869578,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PEHE",
+   "name": "PETERHEAD",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -1.800696,
+   "lat": 57.476438,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PEHG",
+   "name": "PETERHEAD GRANGE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -1.805614,
+   "lat": 57.508639,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PELH",
+   "name": "PELHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.118112,
+   "lat": 51.935131,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "PEMB",
+   "name": "PEMBROKE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -4.989479,
+   "lat": 51.682162,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PENI",
+   "name": "PENISARWAUN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -4.17045,
+   "lat": 53.150108,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "PENN",
+   "name": "PENN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.209148,
+   "lat": 52.556471,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PENT",
+   "name": "PENTIR",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -4.158196,
+   "lat": 53.187502,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PERH",
+   "name": "PENRHOS",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -4.599367,
+   "lat": 53.29504,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PERS",
+   "name": "PERSLEY",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -2.13804,
+   "lat": 57.174216,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "PEWO",
+   "name": "PENWORTHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.756539,
+   "lat": 53.744791,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PITS",
+   "name": "PITSMOOR",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.443659,
+   "lat": 53.400694,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "POOB",
+   "name": "PORTOBELLO",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.12454,
+   "lat": 55.953321,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "POPP",
+   "name": "POPPLETON",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.131512,
+   "lat": 53.974944,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PORA",
+   "name": "PORT ANN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -5.356536,
+   "lat": 56.02831,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PORD",
+   "name": "PORT DUNDAS",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.255063,
+   "lat": 55.873699,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PORH",
+   "name": "PORT HAM",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -2.266205,
+   "lat": 51.871647,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PUDM",
+   "name": "PUDDING MILL LANE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.016525,
+   "lat": 51.531597,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "PYLE",
+   "name": "PYLE",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.687801,
+   "lat": 51.536112,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "QUOI",
+   "name": "QUOICH",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -5.123178,
+   "lat": 57.062754,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "RAIN",
+   "name": "RAINHILL",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.738406,
+   "lat": 53.421155,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "RAMW",
+   "name": "RAMPION OFFSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 150,
+   "lon": -0.259831,
+   "lat": 50.692828,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "RANN",
+   "name": "RANNOCH",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.400484,
+   "lat": 56.693127,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "RASS",
+   "name": "RASSAU",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.226162,
+   "lat": 51.808427,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "RATS",
+   "name": "RATCLIFFE-ON-SOAR",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.255078,
+   "lat": 52.863483,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "RAYL",
+   "name": "RAYLEIGH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.566451,
+   "lat": 51.59379,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "REBR",
+   "name": "REDBRIDGE",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": 0.043125,
+   "lat": 51.588577,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "REDH",
+   "name": "REDHOUSE",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.144749,
+   "lat": 56.145636,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "REDM",
+   "name": "REDMOSS",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.091644,
+   "lat": 57.108465,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "RHIG",
+   "name": "RHIGOS",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.548271,
+   "lat": 51.746732,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "RICH",
+   "name": "RICHBOROUGH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 1.343976,
+   "lat": 51.31131,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ROCH",
+   "name": "ROCHDALE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.215915,
+   "lat": 53.621812,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ROCK",
+   "name": "ROCKSAVAGE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.724942,
+   "lat": 53.314991,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "ROTI",
+   "name": "ROTHIENORMAN",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -2.516267,
+   "lat": 57.409963,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "ROWD",
+   "name": "ROWDOWN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.003773,
+   "lat": 51.351885,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "RUGE",
+   "name": "RUGELEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.914974,
+   "lat": 52.756677,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "RYEH",
+   "name": "RYE HOUSE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.003448,
+   "lat": 51.758063,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "RYHA",
+   "name": "RYHALL",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.452316,
+   "lat": 52.688197,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SACO",
+   "name": "SALTCOATS",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.796139,
+   "lat": 55.647011,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SAEN",
+   "name": "SALTEND NORTH",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -0.23848,
+   "lat": 53.741987,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SAES",
+   "name": "SALTEND SOUTH",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -0.242796,
+   "lat": 53.736926,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SAFO",
+   "name": "SANDFORD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.83948,
+   "lat": 51.340577,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SALH",
+   "name": "SALTHOLME",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.237154,
+   "lat": 54.605411,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SANX",
+   "name": "ST ANDREWS CROSS",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.260087,
+   "lat": 55.844193,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SEAB",
+   "name": "SEABANK",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.670233,
+   "lat": 51.536759,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SELL",
+   "name": "SELLINDGE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.972205,
+   "lat": 51.105708,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SFEE",
+   "name": "ST FERGUS EAST",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -1.855337,
+   "lat": 57.575032,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SFER",
+   "name": "ST FERGUS",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -1.881395,
+   "lat": 57.566397,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SHEC",
+   "name": "SHEFFIELD CITY",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.478611,
+   "lat": 53.374758,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SHEE",
+   "name": "SHEERNESS",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": 0.749585,
+   "lat": 51.436726,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SHIN",
+   "name": "SHIN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.413312,
+   "lat": 57.943244,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SHRE",
+   "name": "SHREWSBURY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.693,
+   "lat": 52.709345,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SHRU",
+   "name": "SHRUBHILL",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.184996,
+   "lat": 55.96537,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SHUR",
+   "name": "SHURTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.138196,
+   "lat": 51.203248,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SING",
+   "name": "SINGLEWELL",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.392415,
+   "lat": 51.405016,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SIZE",
+   "name": "SIZEWELL",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 1.616575,
+   "lat": 52.215025,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "SKLG",
+   "name": "SKELTON GRANGE",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.496104,
+   "lat": 53.777144,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SLOY",
+   "name": "SLOY",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.729428,
+   "lat": 56.245479,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "SMAN",
+   "name": "SOUTH MANCHESTER",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.276129,
+   "lat": 53.421049,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SMEA",
+   "name": "SMEATON",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.036156,
+   "lat": 55.90857,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SPAV",
+   "name": "SPANGO VALLEY",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.813584,
+   "lat": 55.936751,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SPEN",
+   "name": "SPENNYMOOR",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.554959,
+   "lat": 54.705786,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SPIT",
+   "name": "SPITTAL",
+   "transmission_owner": "SHET",
+   "max_kv": 400,
+   "lon": -3.451722,
+   "lat": 58.478991,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "SPLN",
+   "name": "SPALDING NORTH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.133276,
+   "lat": 52.805786,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SSHI",
+   "name": "SOUTH SHIELDS",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.449566,
+   "lat": 54.973398,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STAH",
+   "name": "STANAH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.988363,
+   "lat": 53.878997,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STAL",
+   "name": "STALYBRIDGE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.043336,
+   "lat": 53.492443,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STAY",
+   "name": "STAYTHORPE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.868109,
+   "lat": 53.077392,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STEN",
+   "name": "STELLA NORTH",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -1.724532,
+   "lat": 54.978051,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STES",
+   "name": "STELLA SOUTH",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -1.732503,
+   "lat": 54.974352,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STEW",
+   "name": "STELLA WEST",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.743175,
+   "lat": 54.977738,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STHA",
+   "name": "STRATHAVEN",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -4.079878,
+   "lat": 55.751788,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STIR",
+   "name": "STIRLING",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.919361,
+   "lat": 56.117476,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STLE",
+   "name": "STRATHLEVEN",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.561788,
+   "lat": 55.961262,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STOB",
+   "name": "STOKE BARDOLPH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.050501,
+   "lat": 52.959948,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STOR",
+   "name": "STORNOWAY",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -6.422764,
+   "lat": 58.203338,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STRI",
+   "name": "STRICHEN",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.07013,
+   "lat": 57.586127,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STRL",
+   "name": "STRONELAIRG WIND FARM (SSE)",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -4.434339,
+   "lat": 57.093803,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STSB",
+   "name": "STOCKSBRIDGE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.60189,
+   "lat": 53.487713,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "STWT",
+   "name": "STELLA WEST TEE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.743175,
+   "lat": 54.977738,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "STYC",
+   "name": "STAYTHORPE C",
+   "transmission_owner": "NGET",
+   "max_kv": 132,
+   "lon": -0.865492,
+   "lat": 53.076924,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SUND",
+   "name": "SUNDON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.501369,
+   "lat": 51.933967,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "SWAN",
+   "name": "SWANSEA NORTH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.958647,
+   "lat": 51.686126,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "TARL",
+   "name": "TARLAND",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.78727,
+   "lat": 57.151962,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TAUN",
+   "name": "TAUNTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.154274,
+   "lat": 51.017066,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TAYN",
+   "name": "TAYNUILT",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -5.214298,
+   "lat": 56.430063,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TEAL",
+   "name": "TEALING",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -2.977896,
+   "lat": 56.521282,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TELR",
+   "name": "TELFORD ROAD",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -3.243003,
+   "lat": 55.962103,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TEMP",
+   "name": "TEMPLEBOROUGH",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.386631,
+   "lat": 53.412158,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "THAW",
+   "name": "THANET WIND ONSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 132,
+   "lon": 1.345881,
+   "lat": 51.308881,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "THOM",
+   "name": "THORPE MARSH",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -1.089426,
+   "lat": 53.575544,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "THTO",
+   "name": "THORNTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.822132,
+   "lat": 53.900344,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "THUR",
+   "name": "THURCROFT",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.268572,
+   "lat": 53.40485,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "THUS",
+   "name": "THURSO SOUTH",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -3.512727,
+   "lat": 58.564236,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TIBB",
+   "name": "TILBURY B",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.391311,
+   "lat": 51.460189,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "TILB",
+   "name": "TILBURY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.391311,
+   "lat": 51.460189,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TINP",
+   "name": "TINSLEY PARK",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.394676,
+   "lat": 53.401185,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TODP",
+   "name": "TOD POINT",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.116766,
+   "lat": 54.606501,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TOMT",
+   "name": "TOMATIN",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -4.066607,
+   "lat": 57.301098,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TONG",
+   "name": "TONGLAND",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.035153,
+   "lat": 54.860822,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TORN",
+   "name": "TORNESS",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -2.410336,
+   "lat": 55.966205,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TOTT",
+   "name": "TOTTENHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -0.047591,
+   "lat": 51.604373,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TRAW",
+   "name": "TRAWSFYNYDD",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -3.946758,
+   "lat": 52.927097,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TREM",
+   "name": "TREMORFA",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.130254,
+   "lat": 51.481927,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TUMM",
+   "name": "TUMMEL",
+   "transmission_owner": "SHET",
+   "max_kv": 275,
+   "lon": -4.028677,
+   "lat": 56.70689,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "TYNE",
+   "name": "TYNEMOUTH",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.500029,
+   "lat": 55.023717,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "UPPB",
+   "name": "UPPER BOAT",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -3.298961,
+   "lat": 51.574572,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "USKM",
+   "name": "USKMOUTH",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.977366,
+   "lat": 51.547607,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WALB",
+   "name": "WALPOLE 'B'",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.199013,
+   "lat": 52.726909,
+   "matched_by": "distinctive_tokens_highest_voltage"
+  },
+  {
+   "site_code": "WALH",
+   "name": "WALHAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.253496,
+   "lat": 51.879332,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WALP",
+   "name": "WALPOLE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.199013,
+   "lat": 52.726909,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WALX",
+   "name": "WALTHAM CROSS",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.011602,
+   "lat": 51.714159,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WARL",
+   "name": "WARLEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.300708,
+   "lat": 51.552716,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "WASF",
+   "name": "WASHWAY FARM",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.819534,
+   "lat": 53.562608,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WATS",
+   "name": "WATFORD SOUTH",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -0.404458,
+   "lat": 51.642632,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WBOL",
+   "name": "WEST BOLDON",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.470791,
+   "lat": 54.94007,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WBUR",
+   "name": "WEST BURTON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.809114,
+   "lat": 53.359219,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WERO",
+   "name": "WESTERMOST ROUGH OFFSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 275,
+   "lon": 0.133145,
+   "lat": 53.805005,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "WERW",
+   "name": "WESTERMOST ROUGH OFFSHORE",
+   "transmission_owner": "OFTO",
+   "max_kv": 150,
+   "lon": 0.133145,
+   "lat": 53.805005,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WFIE",
+   "name": "WESTFIELD",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.300368,
+   "lat": 56.164268,
+   "matched_by": "exact_name_voltage_compatible"
+  },
+  {
+   "site_code": "WGEO",
+   "name": "WEST GEORGE STREET",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.266087,
+   "lat": 55.863226,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WHAM",
+   "name": "WEST HAM",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.001102,
+   "lat": 51.519582,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WHGA",
+   "name": "WHITEGATE",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.167209,
+   "lat": 53.528773,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WHHO",
+   "name": "WHITEHOUSE",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -3.201557,
+   "lat": 55.93128,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WHSO",
+   "name": "WHITSON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -2.908659,
+   "lat": 51.564837,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WHTL",
+   "name": "WHISTLEFIELD",
+   "transmission_owner": "SPT",
+   "max_kv": 132,
+   "lon": -4.840953,
+   "lat": 56.089638,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WIBA",
+   "name": "WINCOBANK",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.414038,
+   "lat": 53.415796,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WIEN",
+   "name": "WILLENHALL",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -2.049301,
+   "lat": 52.577841,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WILT",
+   "name": "WILTON",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.131766,
+   "lat": 54.575767,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WIMB",
+   "name": "WIMBLEDON",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.189091,
+   "lat": 51.432216,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WIOW",
+   "name": "WILLOWDALE",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.097211,
+   "lat": 57.153806,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WISD",
+   "name": "WILLESDEN",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.258001,
+   "lat": 51.533892,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WISH",
+   "name": "WISHAW",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -3.930852,
+   "lat": 55.764337,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WIYH",
+   "name": "WINDYHILL",
+   "transmission_owner": "SPT",
+   "max_kv": 400,
+   "lon": -4.376935,
+   "lat": 55.930019,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WLEE",
+   "name": "WHITELEE",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.171342,
+   "lat": 55.695581,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WLEX",
+   "name": "WHITELEE EXTENSION",
+   "transmission_owner": "SPT",
+   "max_kv": 275,
+   "lon": -4.303585,
+   "lat": 55.680392,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WMEL",
+   "name": "WEST MELTON",
+   "transmission_owner": "NGET",
+   "max_kv": 275,
+   "lon": -1.377005,
+   "lat": 53.501562,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WOHI",
+   "name": "WOODHILL",
+   "transmission_owner": "SHET",
+   "max_kv": 132,
+   "lon": -2.146131,
+   "lat": 57.154265,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WOWE",
+   "name": "WALNEY EXTENSION",
+   "transmission_owner": "OFTO",
+   "max_kv": 400,
+   "lon": -2.880694,
+   "lat": 54.035078,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WTHU",
+   "name": "WEST THURROCK",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 0.288252,
+   "lat": 51.471055,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WWEY",
+   "name": "WEST WEYBRIDGE",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.484397,
+   "lat": 51.350613,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WYLF",
+   "name": "WYLFA",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -4.480276,
+   "lat": 53.415208,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "WYMO",
+   "name": "WYMONDLEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": -0.249047,
+   "lat": 51.927715,
+   "matched_by": "exact_name_highest_voltage"
+  },
+  {
+   "site_code": "YAXL",
+   "name": "YAXLEY",
+   "transmission_owner": "NGET",
+   "max_kv": 400,
+   "lon": 1.105285,
+   "lat": 52.331976,
+   "matched_by": "exact_name_highest_voltage"
+  }
+ ]
+}
