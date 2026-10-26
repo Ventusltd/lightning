@@ -15,6 +15,7 @@ The satellite detects **optical lightning flashes**, including inside clouds. Ma
 - `history.py` and `data/history/`: one-year UTC archive — `index.json` (`uk-lightning-history-index.v2`, one row per UTC date with coverage none/partial/full, count null when never searched) and day shards `days/YYYY/MM/DD.json` (hourly parts above 8 MiB). See `docs/HISTORY_ONE_YEAR.md`.
 - `status.py` and `data/status.json`: written after every run, successful or not (last error, consecutive failures, last successful scan end).
 - `history-window.mjs`: DOM-free UTC date-window client (periods, navigation, budgeted tiered loading, coverage, UI states) for a GridAtlas implant to consume.
+- `parquet_store.py`, `rollups.py`, `sql/`, `verify_parquet.py` and `data/parquet/`: a Parquet mirror of the archive (flashes partitioned `year=YYYY/month=MM`, ZSTD), per-day and per-10-minute-slot coverage (never searched is NULL, never 0), DuckDB rollups (daily, hourly, storm episodes, a <= 4 kB `headline.json`) and a SHA-256 manifest, verified fail-closed. The substation metrics are **optical-flash proximity**: satellite optical flashes within 5/10/20 km of a GB transmission connection point's map location (data-grid-gb, pinned by SHA-256; coordinates (c) OpenStreetMap contributors, ODbL). They are **not ground strikes, not confirmed strikes and not electrical faults**. See `docs/PARQUET-DUCKDB.md`.
 - `.github/workflows/update-lightning.yml`: hourly update; the feed is committed first and separately from the archive, so an archive failure never blocks the feed; manual runs may set an explicit 1–48 hour lookback.
 - `tests/`: offline Python (`unittest`) and Node (`node --test`) contracts.
 
@@ -34,6 +35,8 @@ node --test tests/test_history_window.mjs
 python collect.py --auto-window --run-record /tmp/run.json
 python history.py ingest --archive-dir data/history --run-record /tmp/run.json
 python status.py write --status data/status.json --run-record /tmp/run.json --collect-outcome success --archive-outcome success
+python parquet_store.py build --archive-dir data/history --out data/parquet --if-archive
+python verify_parquet.py --archive-dir data/history --out data/parquet --if-archive
 ```
 
 The program requires the two EUMETSAT environment variables. No API keys should ever be committed. Download failures preserve the existing feed and archive and are recorded in `data/status.json`; unsearched time is unknown, not zero. Automatic rolling output is capped at 40,000 recent flash points for public mobile maps. The observations are not evidence that a particular building or installation was struck.
