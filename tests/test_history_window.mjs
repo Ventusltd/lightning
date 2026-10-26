@@ -372,6 +372,8 @@ test('Budget gate: a storm month is summary-first; LOAD POINTS loads newest days
   assert.equal(points.totalMatchingObservations, 6); // genuine features in the small shards; "N of M" from the index
   assert.equal(points.archivedDayCount, 120000);
   assert.equal(f.requests.length, 4);
+  assert.equal(captionLines(points, { nowMs: NOW }).flashes,
+    'Flashes 120,000 archived in window (index) · 6 drawn from the newest 3 of 30 days (cap 10,000; 27 older days not loaded)');
 });
 
 test('LRU keeps at most 8 shards; evicted shards are re-fetched, cached ones are not', async () => {

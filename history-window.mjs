@@ -327,8 +327,15 @@ export function captionLines(result, { nowMs = Date.now() } = {}) {
       ? 'Actual  first ' + Ts(result.firstObservationUtc) + ' · last ' + Ts(result.lastObservationUtc)
       : 'Actual  no archived flashes within this window' + (result.previousObservationUtc
         ? ' · last archived flash before window ' + Ts(result.previousObservationUtc) + ' (' + AGO(Date.parse(w.start) - Date.parse(result.previousObservationUtc)) + ' before start)' : '');
-    lines.flashes = 'Flashes ' + N(result.totalMatchingObservations) + ' archived in window · ' + N(result.shownObservations) + ' drawn' +
-      (result.truncated ? ' (cap ' + N(result.maxMapPoints) + ': newest drawn, ' + N(result.totalMatchingObservations - result.shownObservations) + ' older not drawn)' : '');
+    if (result.skippedDays && result.skippedDays.length) {
+      // LOAD POINTS: only the newest days up to the cap were fetched; M comes from the index.
+      lines.flashes = 'Flashes ' + N(result.archivedDayCount) + ' archived in window (index) · ' + N(result.shownObservations) + ' drawn from the newest ' +
+        result.loadedDays.length + ' of ' + (result.loadedDays.length + result.skippedDays.length) + ' days (cap ' + N(result.maxMapPoints) + '; ' +
+        result.skippedDays.length + ' older days not loaded)';
+    } else {
+      lines.flashes = 'Flashes ' + N(result.totalMatchingObservations) + ' archived in window · ' + N(result.shownObservations) + ' drawn' +
+        (result.truncated ? ' (cap ' + N(result.maxMapPoints) + ': newest drawn, ' + N(result.totalMatchingObservations - result.shownObservations) + ' older not drawn)' : '');
+    }
   } else {
     const rows = result.selectedDays.filter((r) => r.first_observation_utc);
     lines.actual = rows.length
