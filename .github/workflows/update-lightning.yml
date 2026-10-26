@@ -1,12 +1,16 @@
 name: UK lightning optical flashes
 on:
   schedule:
-    - cron: "20 */3 * * *"
+    # Hourly. Each run searches a self-healing lookback window:
+    # max(6 h, now - last successful scan end + 30 min), capped at 48 h,
+    # so a late or failed run is caught up by the next one (GitHub cron
+    # drift of 5-141 min was observed; see docs/HISTORY_ONE_YEAR.md).
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       hours:
-        description: "Hours of history to ingest (1-48)"
-        default: "3"
+        description: "Explicit lookback in hours (1-48). Leave empty for the automatic self-healing window."
+        default: ""
         required: false
 
 permissions:
@@ -19,7 +23,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,20 +33,86 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Test pure-Python data contracts
         run: python -m unittest discover -s tests -v
-      - name: EUMETSAT collection
+
+      # 1. Collect. Writes the 7-day feed and leaves an uncapped run record in
+      #    the runner's temp dir (never committed). The record carries the
+      #    examined 10-minute product slots, the searched ranges and the gaps.
+      - name: EUMETSAT collection (feed first)
+        id: collect
+        continue-on-error: true
         env:
           EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
           EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
-          HOURS: ${{ inputs.hours || '3' }}
-        run: python collect.py --hours "$HOURS"
-      - name: Commit latest public GeoJSON
+          HOURS: ${{ inputs.hours }}
+        run: |
+          if [ -n "$HOURS" ]; then
+            WINDOW=(--hours "$HOURS")
+          else
+            WINDOW=(--auto-window)
+          fi
+          python collect.py "${WINDOW[@]}" \
+            --out data/uk_lightning.geojson \
+            --status data/status.json \
+            --history-dir data/history \
+            --run-record "$RUNNER_TEMP/lightning-run-record.json"
+
+      # 2. Commit the public feed on its own, before anything touches the archive.
+      - name: Commit latest public GeoJSON (feed commit)
+        if: steps.collect.outcome == 'success'
         run: |
           if git diff --quiet -- data/uk_lightning.geojson; then
-            echo "No changed output"
+            echo "No changed feed output"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/uk_lightning.geojson
           git commit -m "data: refresh UK satellite lightning flash layer"
-          git push
+          git push || (git pull --rebase origin main && git push)
+
+      # 3. Append to the one-year UTC archive (index v2 + day shards). A failure
+      #    here (for example a shard above max_shard_bytes) never blocks the feed.
+      - name: Append to the one-year UTC archive
+        id: archive
+        if: steps.collect.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python history.py ingest \
+            --archive-dir data/history \
+            --run-record "$RUNNER_TEMP/lightning-run-record.json" \
+            --seed-scan-windows data/seed_scan_windows.json \
+            --result-out "$RUNNER_TEMP/lightning-archive-result.json"
+
+      # 4. Always record the outcome: last attempt, last error, consecutive
+      #    failures and the last successful scan end the next run looks back to.
+      - name: Write data/status.json (always)
+        if: always()
+        run: |
+          python status.py write \
+            --status data/status.json \
+            --run-record "$RUNNER_TEMP/lightning-run-record.json" \
+            --archive-result "$RUNNER_TEMP/lightning-archive-result.json" \
+            --collect-outcome "${{ steps.collect.outcome }}" \
+            --archive-outcome "${{ steps.archive.outcome }}"
+
+      # 5. Commit archive and status separately from the feed.
+      - name: Commit archive and status (archive commit)
+        if: always()
+        run: |
+          git add -A data/history data/status.json
+          if git diff --cached --quiet; then
+            echo "No changed archive or status"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: archive UTC day shards, index v2 and collector status"
+          git push || (git pull --rebase origin main && git push)
+
+      # 6. Make a failed collection or archive visible in the Actions UI even
+      #    though the steps above were allowed to continue.
+      - name: Surface collection or archive failure
+        if: always() && (steps.collect.outcome != 'success' || steps.archive.outcome == 'failure')
+        run: |
+          echo "::error::collect=${{ steps.collect.outcome }} archive=${{ steps.archive.outcome }} (see data/status.json)"
+          exit 1
