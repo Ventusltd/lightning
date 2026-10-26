@@ -197,6 +197,8 @@ def main():
     parser.add_argument("--hours", type=int, default=3, help="How far back to fetch from EUMETSAT; 1-48")
     parser.add_argument("--retention-days", type=int, default=7)
     parser.add_argument("--out", type=Path, default=Path("data/uk_lightning.geojson"))
+    parser.add_argument("--history-dir", type=Path, default=None,
+                        help="Optional append-only one-calendar-year UTC daily archive")
     args = parser.parse_args()
     if not 1 <= args.hours <= 48 or not 1 <= args.retention_days <= 31:
         parser.error("hours must be 1..48 and retention-days must be 1..31")
@@ -205,8 +207,25 @@ def main():
     incoming, product_count = download(beginning, now)
     existing = read_previous(args.out)
     result = assemble(existing, incoming, now, retention_days=args.retention_days)
+    if args.history_dir:
+        # The archive receives uncapped genuine incoming detections, plus the
+        # previously published rolling feed as a clearly partial initial seed.
+        # The normal seven-day feed remains byte-compatible for existing users.
+        from history import archive_observations, successful_scan
+        scan = successful_scan(iso_utc(beginning), iso_utc(now), product_count)
+        archive = archive_observations(
+            args.history_dir, [*existing, *incoming], now=now, scanned_window=scan
+        )
+        print(f"Archived {archive['index']['archived_observations']} dated optical "
+              f"observations across {archive['index']['archived_days_with_flashes']} "
+              "UTC days (availability is not continuous).")
     # Refresh provenance only when a successful query returned product files.
     result["metadata"]["products_examined"] = product_count
+    result["metadata"]["published_at_utc"] = iso_utc(now)
+    result["metadata"]["first_detection_utc"] = (
+        result["features"][0]["properties"]["time_utc"] if result["features"] else None
+    )
+    result["metadata"]["last_detection_utc"] = result["metadata"]["latest_detection_utc"]
     result["metadata"]["query_start_utc"] = iso_utc(beginning)
     result["metadata"]["query_end_utc"] = iso_utc(now)
     args.out.parent.mkdir(parents=True, exist_ok=True)
