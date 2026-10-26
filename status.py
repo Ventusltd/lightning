@@ -7,11 +7,17 @@ last examined EUMETSAT product slot, so the next run searches from there
 (plus a margin) instead of leaving a gap. A failed run keeps the previous
 success values, records the error and increments ``consecutive_failures``;
 nothing here ever claims zero lightning for an unsearched period.
+
+``freshness`` is the age-based value (ok/warn/stale/stopped/never). ``health``
+is the same value except that an archive with any ``shard_lost`` date is never
+reported ``ok``: a fresh run with a lost shard is ``degraded``. ``integrity``
+carries the explicit alert; ``status.py alert`` exits 1 while it is raised.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -45,6 +51,33 @@ def health(now: datetime, last_success_end: datetime | None) -> str:
     if age > STALE_WARN_HOURS:
         return "warn"
     return "ok"
+
+
+def integrity_status(previous: dict, archive_result: dict | None, archive_outcome: str) -> dict:
+    """The archive integrity block. A lost shard is never forgotten by a failed run.
+
+    Only a successful archive step (ingest + verify, then committed) can change the
+    state; otherwise the previous status is carried, and any loss this run detected
+    is added to it (an alert is never hidden by a failure).
+    """
+    prev = previous.get("integrity") if isinstance(previous.get("integrity"), dict) else None
+    this = (archive_result or {}).get("integrity") if isinstance((archive_result or {}).get("integrity"), dict) else None
+    if archive_outcome == "success" and this and this.get("state") in ("ok", "shard_lost"):
+        lost, source = sorted(this.get("lost_days") or []), "this_run"
+        alert = this.get("alert")
+        quarantined = this.get("quarantined_observations")
+    elif prev or (this and this.get("state") == "shard_lost"):
+        lost = sorted(set((prev or {}).get("lost_days") or []) | set((this or {}).get("lost_days") or []))
+        source = "previous_status" if prev else "this_run_unverified"
+        alert = (this or {}).get("alert") if (this or {}).get("state") == "shard_lost" else (prev or {}).get("alert")
+        quarantined = (prev or {}).get("quarantined_observations")
+    else:
+        return {"state": "unknown", "alert": None, "lost_days": [], "quarantined_observations": None, "source": None}
+    state = "shard_lost" if lost else "ok"
+    if state == "shard_lost" and not alert:
+        alert = f"INTEGRITY ALERT: archive shard lost for {', '.join(lost)}; counts unknown, not zero"
+    return {"state": state, "alert": alert if state == "shard_lost" else None, "lost_days": lost,
+            "quarantined_observations": quarantined, "source": source}
 
 
 def build_status(
@@ -82,10 +115,15 @@ def build_status(
             last_success_start = iso_utc(start)
     failures = 0 if collected else int(previous.get("consecutive_failures") or 0) + 1
     last_end_dt = parse_utc(last_success_end) if last_success_end else None
+    freshness = health(now, last_end_dt)
+    integrity = integrity_status(previous, archive_result, archive_outcome)
+    overall = "degraded" if integrity["state"] == "shard_lost" and freshness in ("ok", "warn") else freshness
     return {
         "schema": SCHEMA_STATUS,
         "written_utc": iso_utc(now),
-        "health": health(now, last_end_dt),
+        "health": overall,
+        "freshness": freshness,
+        "integrity": integrity,
         "last_attempt_utc": (record or {}).get("run_utc") or iso_utc(now),
         "last_attempt_outcome": "success" if collected else "failure",
         "last_error": error,
@@ -144,7 +182,17 @@ def main(argv=None):
     write.add_argument("--collect-outcome", default="failure")
     write.add_argument("--archive-outcome", default="skipped")
     write.add_argument("--now", default=None)
+    alert = sub.add_parser("alert", help="Print the integrity alert and exit 1 while any shard_lost date exists")
+    alert.add_argument("--status", type=Path, default=Path("data/status.json"))
     args = parser.parse_args(argv)
+    if args.command == "alert":
+        current = _load(args.status) or {}
+        integrity = current.get("integrity") or {}
+        if integrity.get("state") == "shard_lost":
+            print(f"::error::{integrity.get('alert') or 'INTEGRITY ALERT: shard_lost'}")
+            return 1
+        print(f"integrity={integrity.get('state', 'unknown')}")
+        return 0
     now = parse_utc(args.now) if args.now else datetime.now(timezone.utc)
     status = build_status(
         now=now, previous=_load(args.status), record=_load(args.run_record),
@@ -154,7 +202,10 @@ def main(argv=None):
     write_status(args.status, status)
     print(f"status: {status['last_attempt_outcome']} health={status['health']} "
           f"last_successful_scan_end={status['last_successful_scan_end_utc']} "
-          f"consecutive_failures={status['consecutive_failures']} archive={status['archive']['outcome']}")
+          f"consecutive_failures={status['consecutive_failures']} archive={status['archive']['outcome']} "
+          f"integrity={status['integrity']['state']}")
+    if status["integrity"]["state"] == "shard_lost":
+        print(status["integrity"]["alert"], file=sys.stderr)
     return 0
 
 

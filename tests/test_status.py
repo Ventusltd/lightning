@@ -89,6 +89,51 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(result["archive"]["lost_days"], ["2026-10-24"])
         self.assertEqual(result["archive"]["dropped_lost_day"], 1)
 
+    # --- shard_lost: explicit integrity alert, never reported entirely healthy ---------
+    LOST_RESULT = {"outcome": "success", "lost_days": ["2026-10-24"], "dropped_lost_day": 0,
+                   "integrity": {"state": "shard_lost", "lost_days": ["2026-10-24"], "quarantined_observations": 1,
+                                 "alert": "INTEGRITY ALERT: 1 UTC date lost its listed shard (2026-10-24); unknown, not zero"}}
+
+    def test_shard_lost_degrades_health_and_raises_an_integrity_alert(self):
+        result = build_status(now=NOW, previous=None, record=RECORD, archive_result=self.LOST_RESULT,
+                              collect_outcome="success", archive_outcome="success")
+        self.assertEqual(result["freshness"], "ok")
+        self.assertEqual(result["health"], "degraded")  # fresh, but not entirely healthy
+        self.assertEqual(result["integrity"]["state"], "shard_lost")
+        self.assertEqual(result["integrity"]["lost_days"], ["2026-10-24"])
+        self.assertIn("INTEGRITY ALERT", result["integrity"]["alert"])
+        self.assertEqual(result["integrity"]["source"], "this_run")
+
+    def test_integrity_alert_is_carried_when_the_archive_step_fails_or_is_skipped(self):
+        lost = build_status(now=NOW, previous=None, record=RECORD, archive_result=self.LOST_RESULT,
+                            collect_outcome="success", archive_outcome="success")
+        for outcome in ("failure", "skipped"):
+            later = build_status(now=NOW + timedelta(hours=1), previous=lost, record=RECORD, archive_result=None,
+                                 collect_outcome="success", archive_outcome=outcome)
+            self.assertEqual(later["integrity"]["state"], "shard_lost", outcome)
+            self.assertEqual(later["integrity"]["source"], "previous_status", outcome)
+            self.assertEqual(later["health"], "degraded", outcome)
+
+    def test_recovered_archive_reports_ok_again(self):
+        lost = build_status(now=NOW, previous=None, record=RECORD, archive_result=self.LOST_RESULT,
+                            collect_outcome="success", archive_outcome="success")
+        ok = build_status(now=NOW, previous=lost, record=RECORD, archive_result={
+            "outcome": "success", "integrity": {"state": "ok", "lost_days": [], "alert": None}},
+            collect_outcome="success", archive_outcome="success")
+        self.assertEqual((ok["health"], ok["integrity"]["state"], ok["integrity"]["alert"]), ("ok", "ok", None))
+
+    def test_alert_command_exits_nonzero_while_a_shard_is_lost(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "status.json"
+            status_module.write_status(target, build_status(
+                now=NOW, previous=None, record=RECORD, archive_result=self.LOST_RESULT,
+                collect_outcome="success", archive_outcome="success"))
+            self.assertEqual(status_module.main(["alert", "--status", str(target)]), 1)
+            status_module.write_status(target, build_status(
+                now=NOW, previous=None, record=RECORD, archive_result={"outcome": "success", "integrity": {"state": "ok"}},
+                collect_outcome="success", archive_outcome="success"))
+            self.assertEqual(status_module.main(["alert", "--status", str(target)]), 0)
+
     def test_health_thresholds(self):
         self.assertEqual(health(NOW, None), "never")
         self.assertEqual(health(NOW, NOW - timedelta(hours=5)), "ok")
