@@ -123,9 +123,16 @@ jobs:
           git push || (git pull --rebase origin main && git push)
 
       # 6. Make a failed collection or archive visible in the Actions UI even
-      #    though the steps above were allowed to continue.
-      - name: Surface collection or archive failure
-        if: always() && (steps.collect.outcome != 'success' || steps.archive.outcome == 'failure')
+      #    though the steps above were allowed to continue. A shard_lost
+      #    integrity alert also turns the run red, AFTER healthy days and the
+      #    status were committed, until `history.py recover` clears it.
+      - name: Surface collection, archive or integrity failure
+        if: always()
         run: |
-          echo "::error::collect=${{ steps.collect.outcome }} archive=${{ steps.archive.outcome }} (see data/status.json)"
-          exit 1
+          fail=0
+          if [ "${{ steps.collect.outcome }}" != "success" ] || [ "${{ steps.archive.outcome }}" = "failure" ]; then
+            echo "::error::collect=${{ steps.collect.outcome }} archive=${{ steps.archive.outcome }} (see data/status.json)"
+            fail=1
+          fi
+          python status.py alert --status data/status.json || fail=1
+          exit "$fail"

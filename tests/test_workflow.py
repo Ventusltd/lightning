@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "update-lightning.yml"
 ARCHIVE_COMMIT = "Commit archive and status (archive commit)"
 ARCHIVE_STEP = "Append to the one-year UTC archive"
+SURFACE_STEP = "Surface collection, archive or integrity failure"
 
 
 def step_script(name: str) -> str:
@@ -131,6 +132,23 @@ class WorkflowShellTests(unittest.TestCase):
         self.assertNotIn("data/history/days/partial.json", files)
         self.assertEqual(self.git("show", "origin/main:data/history/index.json"), '{"committed": true}\n')
         self.assertEqual(self.git("status", "--porcelain", "--", "data/history"), "")
+
+    # --- shard_lost: an integrity alert turns the run red after everything is committed ---
+    def test_surface_step_fails_on_an_integrity_alert_even_when_collect_and_archive_succeed(self):
+        for name in ("status.py", "collect.py"):
+            shutil.copy(ROOT / name, self.repo / name)
+        ok = {"steps.collect.outcome": "success", "steps.archive.outcome": "success"}
+        (self.repo / "data" / "status.json").write_text('{"integrity": {"state": "ok", "alert": null}}\n')
+        done = self.run_step(SURFACE_STEP, ok)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        (self.repo / "data" / "status.json").write_text(
+            '{"integrity": {"state": "shard_lost", "alert": "INTEGRITY ALERT: 2026-10-24 lost"}}\n')
+        done = self.run_step(SURFACE_STEP, ok)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("::error::INTEGRITY ALERT: 2026-10-24 lost", done.stdout)
+        done = self.run_step(SURFACE_STEP, {**ok, "steps.collect.outcome": "failure"})
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("::error::collect=failure", done.stdout)
 
 if __name__ == "__main__":
     unittest.main()
