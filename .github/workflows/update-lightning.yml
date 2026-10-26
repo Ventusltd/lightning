@@ -99,7 +99,13 @@ jobs:
       - name: Commit archive and status (archive commit)
         if: always()
         run: |
-          git add -A data/history data/status.json
+          # Add the paths separately: before the first successful archive write
+          # data/history does not exist and a combined pathspec aborts with 128,
+          # losing the heartbeat.
+          git add -A -- data/status.json
+          if [ -d data/history ]; then
+            git add -A -- data/history
+          fi
           if git diff --cached --quiet; then
             echo "No changed archive or status"
             exit 0
