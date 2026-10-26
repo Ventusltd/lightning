@@ -379,9 +379,24 @@ def archive_observations(
     changed_files = 0
     summaries: dict[str, dict] = {}
     split_days: list[str] = []
-    for day in sorted(set(disk) | set(incoming_by_day)):
+    # A shard the old index lists but the disk lacks is LOST: its count can no
+    # longer be proven, so the day becomes unknown (count null), never zero or
+    # a partial count rebuilt from whatever flashes arrive later. Sticky via
+    # the row's ``shard_lost`` flag until the date leaves retention.
+    window = (cutoff.isoformat(), today.isoformat())
+    lost_days = {d for d, r in old_rows.items() if r.get("shard_lost") and window[0] <= d <= window[1]}
+    indexed = {d for d, r in old_rows.items() if (r.get("path") or r.get("parts")) and window[0] <= d <= window[1]}
+    dropped_lost_day = 0
+    for day in sorted(set(disk) | set(incoming_by_day) | indexed):
         on_disk = disk.get(day, {"file": None, "parts": {}})
         old_row = old_rows.get(day)
+        if day not in lost_days and old_row and (old_row.get("path") or old_row.get("parts")):
+            listed = [old_row["path"]] if old_row.get("path") else [p["path"] for p in old_row.get("parts") or []]
+            if any(not (archive_dir / rel).exists() for rel in listed):
+                lost_days.add(day)
+        if day in lost_days:
+            dropped_lost_day += len(incoming_by_day.get(day, {}))
+            continue  # leave any remaining files untouched (unlisted) for manual recovery from git history
         verifiable = (
             old_row is not None and day not in incoming_by_day
             and bool(old_row.get("path") or old_row.get("parts"))
@@ -472,6 +487,8 @@ def archive_observations(
                 # recorded for the date (e.g. a seed older than the recorded windows).
                 proven = slots_proved_by_flashes(summary["records"]) if summary.get("records") else SLOT_SECONDS
                 scanned = max(SLOT_SECONDS, proven, int(summary.get("scanned_floor") or 0))
+        if key in lost_days:
+            scanned, summary = 0, None
         coverage = coverage_for(scanned)
         count = None if coverage == "none" else (summary["count"] if summary else 0)
         row = {
@@ -488,6 +505,8 @@ def archive_observations(
         }
         if summary and summary.get("parts"):
             row["parts"] = summary["parts"]
+        if key in lost_days:
+            row["shard_lost"] = True
         rows.append(row)
         day += timedelta(days=1)
 
@@ -531,6 +550,7 @@ def archive_observations(
         "index": index, "files_changed": changed_files, "days_expired": len(expired_files),
         "dropped_before_cutoff": dropped_before_cutoff, "dropped_invalid": dropped_invalid,
         "split_days": sorted(set(split_days)),
+        "lost_days": sorted(lost_days), "dropped_lost_day": dropped_lost_day,
     }
 
 

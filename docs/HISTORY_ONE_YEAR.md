@@ -116,6 +116,10 @@ Rules:
 - `sealed` = every slot of the date was examined (`full`) **or** `generated_utc ≥ date + 1 d +
   48 h`, i.e. no scheduled run can touch the shard any more: safe for ordinary HTTP caching
   (`cache: 'default'`). Unsealed shards and the index use `cache: 'no-cache'` (revalidate).
+- `shard_lost: true` (optional key) marks a date whose listed shard or part vanished from disk:
+  the row becomes `coverage none`, `scanned_seconds 0`, `count null` (unknown, never zero),
+  stays so on later runs (incoming flashes for it are dropped and counted as `dropped_lost_day`),
+  and any remaining files are left unlisted for manual recovery from git history.
 
 ### Day shard (`uk-lightning-history-day.v1`)
 

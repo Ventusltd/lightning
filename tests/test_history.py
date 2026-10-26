@@ -357,6 +357,40 @@ class LightningHistoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             archive_observations(self.root, [], now=self.now)
 
+    # --- D-1: a shard listed in the index but missing on disk -------------------
+    def test_listed_shard_missing_on_disk_becomes_unknown_not_zero(self):
+        day = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        first = archive_observations(self.root, [self.flash(day + timedelta(hours=10), "a"),
+                                                 self.flash(day + timedelta(hours=11), "b")],
+                                     now=self.now, scanned_window=self.scan(day, day + timedelta(days=1)))
+        self.assertEqual({r["date"]: r for r in first["index"]["days"]}["2026-10-24"]["count"], 2)
+        (self.root / day_path(day.date())).unlink()  # lost between runs (bad merge, manual edit, ...)
+        second = archive_observations(self.root, [], now=self.now)
+        row = {r["date"]: r for r in second["index"]["days"]}["2026-10-24"]
+        self.assertEqual((row["coverage"], row["scanned_seconds"], row["count"], row["path"], row["bytes"], row["sha256"]),
+                         ("none", 0, None, None, None, None))  # unknown, never a searched zero
+        self.assertTrue(row["shard_lost"])
+        self.assertEqual(second["lost_days"], ["2026-10-24"])
+        self.assertEqual(second["index"]["archived_observations"], 0)
+        # Sticky: a later run carrying one flash of that day must not turn it into a partial "count 1".
+        third = archive_observations(self.root, [self.flash(day + timedelta(hours=12), "c")], now=self.now)
+        row = {r["date"]: r for r in third["index"]["days"]}["2026-10-24"]
+        self.assertEqual((row["coverage"], row["count"], row["path"]), ("none", None, None))
+        self.assertEqual(third["dropped_lost_day"], 1)
+        self.assertFalse((self.root / day_path(day.date())).exists())
+        self.assertEqual(verify_archive(self.root)["shards_checked"], 0)
+
+    def test_missing_hourly_part_marks_the_whole_day_unknown(self):
+        day = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        flashes = [self.flash(day + timedelta(hours=h, minutes=m), f"p{h}-{m}", m) for h in (3, 4) for m in range(4)]
+        archive_observations(self.root, flashes, now=self.now, scanned_window=self.scan(day, day + timedelta(days=1)),
+                             target_shard_bytes=2000)
+        (self.root / part_path(day.date(), 4)).unlink()
+        result = archive_observations(self.root, [], now=self.now, target_shard_bytes=2000)
+        row = {r["date"]: r for r in result["index"]["days"]}["2026-10-24"]
+        self.assertEqual((row["coverage"], row["count"], row.get("parts")), ("none", None, None))
+        self.assertEqual(result["lost_days"], ["2026-10-24"])
+
     # --- CLI --------------------------------------------------------------------
     def test_cli_ingest_and_verify(self):
         record_path = Path(self.temp.name) / "run.json"
