@@ -3,11 +3,15 @@ on:
   push:
     paths:
       - "collect.py"
+      - "history.py"
+      - "history-window.mjs"
       - "tests/**"
       - ".github/workflows/test-lightning.yml"
   pull_request:
     paths:
       - "collect.py"
+      - "history.py"
+      - "history-window.mjs"
       - "tests/**"
       - ".github/workflows/test-lightning.yml"
 
@@ -20,3 +24,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Test archive date-range loader (Node)
+        run: node --test tests/test_history_window.mjs

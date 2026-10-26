@@ -34,15 +34,17 @@ jobs:
           EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
           EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
           HOURS: ${{ inputs.hours || '3' }}
-        run: python collect.py --hours "$HOURS"
+        run: python collect.py --hours "$HOURS" --history-dir data/history
       - name: Commit latest public GeoJSON
         run: |
-          if git diff --quiet -- data/uk_lightning.geojson; then
-            echo "No changed output"
+          # Stage both tracked and brand-new dated archive shards, then
+          # evaluate the staged diff. git diff alone ignores untracked days.
+          git add data/uk_lightning.geojson data/history/
+          if git diff --cached --quiet; then
+            echo "No changed lightning or historical archive data"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/uk_lightning.geojson
-          git commit -m "data: refresh UK satellite lightning flash layer"
+          git commit -m "data: refresh UK optical flashes and one-year UTC archive"
           git push
