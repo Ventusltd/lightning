@@ -209,9 +209,25 @@ These figures come from the real seed: the archive that the first run would writ
 | whole Parquet store (34 files, incl. a 366-day coverage grid, rollups and manifest) | 162,082 | — |
 | `headline.json` | 1,970 | — |
 
-The SYNTHETIC storm-year stress test (`tools/stress_storm_year.py`) generates data only in a
-temp dir, and its output is never published. Its results are in the PR description and in
-`reports/` of the review lane.
+**SYNTHETIC storm year. These figures come from invented data, generated only in a temp dir
+and never published** (`python tools/stress_storm_year.py --flashes 1000000`; Python 3.13,
+duckdb 2.0.0, pyarrow 26.0.0, 2 vCPU sandbox).
+
+The test generated 1,000,000 flashes over 89 storm days. The busiest day had 47,443 flashes
+and was split into hourly JSON parts. Every day was fully searched.
+
+| what | value |
+|---|---|
+| JSON day shards | 537,167,717 B (537.2 B/flash) |
+| Parquet flashes | 17,992,654 B (18.0 B/flash): **29.9× smaller** |
+| whole Parquet store (all tables) | 18,208,788 B |
+| flash row groups | 36 groups of 108–586 kB (mean 489 kB); a one-day query touches 2 of them |
+| build time: JSON archive / Parquet + rollups / fail-closed verify | 48 s / 75 s / 42 s (peak RSS 1.8 GB) |
+| DuckDB query times: count / daily / hourly / one day of points | 0.02 s / 0.09 s / 0.62 s / 0.007 s |
+| DuckDB query times: optical-flash proximity for 489 sites / storm episodes | 9.6 s / 1.8 s |
+
+On a storm year, the whole box merges into one episode per busy day. This is expected: an
+episode is a time cluster, not a storm cell.
 
 ## Licensing and attribution
 
