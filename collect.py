@@ -403,6 +403,36 @@ def write_json(path: Path, obj) -> None:
     path.write_text(json.dumps(obj, separators=(",", ":"), ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def rebuild_day_record(day: str, run_record: Path, *, now: datetime | None = None, downloader=None) -> int:
+    """Fresh EUMETSAT search of one whole UTC date, for ``history.py recover --rebuild``.
+
+    Writes ONLY the run record (never the public feed, status or archive). Its
+    ``run_utc`` is the real time of this search, so recover can check it was made
+    after the loss was detected; its examined slots and flashes are then checked
+    against the archive's recorded scan windows and count before anything changes.
+    """
+    from datetime import date as _date
+    now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    start = datetime.combine(_date.fromisoformat(day), datetime.min.time(), tzinfo=timezone.utc)
+    end = min(start + timedelta(days=1), now)
+    if end <= start:
+        raise ValueError(f"{day} has not started yet")
+    incoming, product_count, names = (downloader or download)(start, end)
+    record = build_run_record(
+        now=end, beginning=start, lookback_source="rebuild", lookback_capped=False, last_success_before=None,
+        product_names=names, products_examined=product_count, incoming=incoming, existing=[],
+        feed={"features": [], "metadata": {"total_before_display_cap": None, "latest_detection_utc": None}},
+    )
+    record["run_utc"] = iso_utc(now)
+    record["rebuild_day_utc"] = day
+    record["note"] = ("Rebuild search of one UTC date for history.py recover --rebuild; not a feed run. "
+                      "Only examined 10-minute slots count as searched.")
+    write_json(run_record, record)
+    print(f"Rebuild of {day}: {len(incoming)} flashes from {product_count} products "
+          f"({record['slots_examined']} slots examined, {len(record['unscanned_ranges'])} gaps).", file=sys.stderr)
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     window = parser.add_mutually_exclusive_group()
@@ -410,6 +440,8 @@ def main(argv=None):
     window.add_argument("--auto-window", action="store_true",
                         help=f"max({LOOKBACK_MIN_HOURS} h, now - last successful scan end + "
                              f"{LOOKBACK_MARGIN_MINUTES} min) capped at {LOOKBACK_MAX_HOURS} h")
+    window.add_argument("--rebuild-day", default=None, metavar="YYYY-MM-DD",
+                        help="Search one whole past UTC date and write only --run-record (for history.py recover --rebuild)")
     parser.add_argument("--retention-days", type=int, default=7)
     parser.add_argument("--out", type=Path, default=Path("data/uk_lightning.geojson"))
     parser.add_argument("--status", type=Path, default=Path("data/status.json"),
@@ -419,6 +451,10 @@ def main(argv=None):
     parser.add_argument("--run-record", type=Path, default=None,
                         help="Where to leave the uncapped run record for the archive/status steps (not committed)")
     args = parser.parse_args(argv)
+    if args.rebuild_day:
+        if not args.run_record:
+            parser.error("--rebuild-day needs --run-record")
+        return rebuild_day_record(args.rebuild_day, args.run_record)
     if args.hours is not None and not 1 <= args.hours <= LOOKBACK_MAX_HOURS:
         parser.error(f"hours must be 1..{LOOKBACK_MAX_HOURS}")
     if not 1 <= args.retention_days <= 31:

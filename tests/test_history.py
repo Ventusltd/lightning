@@ -376,7 +376,8 @@ class LightningHistoryTests(unittest.TestCase):
         third = archive_observations(self.root, [self.flash(day + timedelta(hours=12), "c")], now=self.now)
         row = {r["date"]: r for r in third["index"]["days"]}["2026-10-24"]
         self.assertEqual((row["coverage"], row["count"], row["path"]), ("none", None, None))
-        self.assertEqual(third["dropped_lost_day"], 1)
+        # Not discarded either: the flash waits in quarantine until a verified recovery.
+        self.assertEqual((third["quarantined_lost_day"], third["dropped_lost_day"]), (1, 0))
         self.assertFalse((self.root / day_path(day.date())).exists())
         self.assertEqual(verify_archive(self.root)["shards_checked"], 0)
 

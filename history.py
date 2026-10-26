@@ -42,6 +42,7 @@ from collect import (
 SCHEMA_INDEX = "uk-lightning-history-index.v2"
 SCHEMA_INDEX_V1 = "uk-lightning-history-index.v1"  # accepted on read, upgraded on write
 SCHEMA_DAY = "uk-lightning-history-day.v1"
+SCHEMA_QUARANTINE = "uk-lightning-history-quarantine.v1"
 MAX_SHARD_BYTES = 25_000_000       # hard failure (V6 builder rule, GitHub-safe)
 TARGET_SHARD_BYTES = 8 * 1024 * 1024  # above this a day is split into hourly parts
 COLLECTION_INTERVAL_HOURS = 1
@@ -67,6 +68,10 @@ SEED_NOTE = (
     "= the 10-minute slots its flashes prove were examined (a lower bound)."
 )
 STATUS_TEXT = "archive_partial_until_history_is_genuinely_collected_or_backfilled"
+QUARANTINE_NOTE = (
+    "Flashes observed for a shard_lost date after the loss. They are NOT counted in the index "
+    "(the date stays unknown) until a verified recovery merges them (history.py recover)."
+)
 DAY_PATTERN = re.compile(r"^days/(\d{4})/(\d{2})/(\d{2})\.json$")
 PART_PATTERN = re.compile(r"^days/(\d{4})/(\d{2})/(\d{2})/(\d{2})\.json$")
 
@@ -146,6 +151,65 @@ def _read_features(file: Path, expected_day: str) -> list[dict]:
     if not isinstance(features, list):
         raise ValueError(f"{file}: invalid archive features")
     return features
+
+
+def _features_from_text(text: str, label: str, expected_day: str) -> list[dict]:
+    data = json.loads(text)
+    if not isinstance(data, dict) or data.get("schema") != SCHEMA_DAY or data.get("type") != "FeatureCollection":
+        raise ValueError(f"{label}: invalid archive schema")
+    if data.get("metadata", {}).get("date_utc") != expected_day:
+        raise ValueError(f"{label}: shard date does not match {expected_day}")
+    features = data.get("features")
+    if not isinstance(features, list):
+        raise ValueError(f"{label}: invalid archive features")
+    return features
+
+
+def quarantine_path(day: str) -> str:
+    return f"quarantine/{day}.json"
+
+
+def _read_quarantine(file: Path, day: str, now: datetime, cutoff: date) -> dict[str, dict]:
+    """Flashes held back for a shard_lost date, validated like shard features."""
+    if not file.exists():
+        return {}
+    data = json.loads(file.read_text(encoding="utf-8"))
+    if data.get("schema") != SCHEMA_QUARANTINE or data.get("metadata", {}).get("date_utc") != day:
+        raise ValueError(f"{file}: invalid quarantine file")
+    held: dict[str, dict] = {}
+    for record in data.get("features") or []:
+        valid = validate_feature(record, now, cutoff)
+        if valid is None or valid[0] != day or record["id"] in held:
+            raise ValueError(f"{file}: invalid, duplicated or wrong-day quarantined observation")
+        held[record["id"]] = record
+    return held
+
+
+def _quarantine_content(day: str, held: dict[str, dict]) -> str:
+    records = sorted(held.values(), key=lambda f: (f["properties"]["time_utc"], f["id"]))
+    return _serialise({"schema": SCHEMA_QUARANTINE, "type": "FeatureCollection",
+                       "metadata": {"date_utc": day, "count": len(records), "note": QUARANTINE_NOTE},
+                       "features": records})
+
+
+def _evidence(row: dict, index_generated_utc: str | None) -> dict:
+    """The last index entry recorded for a date: what a recovery must match."""
+    return {
+        "index_generated_utc": index_generated_utc,
+        "path": row.get("path"), "parts": row.get("parts"), "count": row.get("count"),
+        "bytes": row.get("bytes"), "sha256": row.get("sha256"),
+        "first_observation_utc": row.get("first_observation_utc"),
+        "last_observation_utc": row.get("last_observation_utc"),
+    }
+
+
+def integrity_alert(lost_dates: list[str]) -> str | None:
+    if not lost_dates:
+        return None
+    n = len(lost_dates)
+    return (f"INTEGRITY ALERT: {n} UTC date{'s' if n != 1 else ''} lost {'their' if n != 1 else 'its'} listed "
+            f"archive shard ({', '.join(lost_dates)}); counts are unknown, not zero, until a verified "
+            "recovery (history.py recover). Other dates are archived normally.")
 
 
 def _normalise_windows(prior: list, extra: list, cutoff: datetime, now: datetime) -> list[dict]:
@@ -390,19 +454,48 @@ def archive_observations(
     # a partial count rebuilt from whatever flashes arrive later. Sticky via
     # the row's ``shard_lost`` flag until the date leaves retention.
     window = (cutoff.isoformat(), today.isoformat())
-    lost_days = {d for d, r in old_rows.items() if r.get("shard_lost") and window[0] <= d <= window[1]}
+    old_integrity = (old_index or {}).get("integrity") or {}
+    lost_entries = {e["date"]: dict(e) for e in old_integrity.get("lost_days") or []
+                    if isinstance(e, dict) and window[0] <= str(e.get("date")) <= window[1]}
+    recoveries = [r for r in old_integrity.get("recoveries") or [] if isinstance(r, dict) and str(r.get("date")) >= window[0]]
+    lost_days = {d for d, r in old_rows.items() if r.get("shard_lost") and window[0] <= d <= window[1]} | set(lost_entries)
+    for d in lost_days - set(lost_entries):  # flagged before evidence was kept: no recorded entry to verify against
+        lost_entries[d] = {"date": d, "reason": "flagged_without_evidence", "detected_utc": format_utc(now),
+                           "missing_paths": None, "last_recorded": None}
     indexed = {d for d, r in old_rows.items() if (r.get("path") or r.get("parts")) and window[0] <= d <= window[1]}
-    dropped_lost_day = 0
-    for day in sorted(set(disk) | set(incoming_by_day) | indexed):
+    dropped_lost_day = quarantined_lost_day = 0
+    for day in sorted(set(disk) | set(incoming_by_day) | indexed | lost_days):
         on_disk = disk.get(day, {"file": None, "parts": {}})
         old_row = old_rows.get(day)
         if day not in lost_days and old_row and (old_row.get("path") or old_row.get("parts")):
             listed = [old_row["path"]] if old_row.get("path") else [p["path"] for p in old_row.get("parts") or []]
-            if any(not (archive_dir / rel).exists() for rel in listed):
+            missing = [rel for rel in listed if not (archive_dir / rel).exists()]
+            if missing:
                 lost_days.add(day)
+                lost_entries[day] = {
+                    "date": day, "reason": "listed_file_missing", "detected_utc": format_utc(now),
+                    "missing_paths": missing,
+                    "last_recorded": _evidence(old_row, (old_index or {}).get("generated_utc")),
+                }
         if day in lost_days:
-            dropped_lost_day += len(incoming_by_day.get(day, {}))
-            continue  # leave any remaining files untouched (unlisted) for manual recovery from git history
+            # Unknown, never zero, never a partial count: later flashes wait in
+            # quarantine (not counted) until a verified recovery merges them.
+            # Remaining shard files stay on disk, unlisted, for that recovery.
+            q_file = archive_dir / quarantine_path(day)
+            held = _read_quarantine(q_file, day, now, cutoff)
+            new = {i: f for i, f in incoming_by_day.get(day, {}).items() if i not in held}
+            if new:
+                content = _quarantine_content(day, {**held, **new})
+                if len(content.encode("utf-8")) > max_shard_bytes:
+                    dropped_lost_day += len(new)  # counted, loud in status; never silently
+                else:
+                    _write_if_changed(q_file, content)
+                    changed_files += 1
+                    quarantined_lost_day += len(new)
+                    held = {**held, **new}
+            lost_entries[day]["quarantined_observations"] = len(held)
+            lost_entries[day]["quarantine_path"] = quarantine_path(day) if held else None
+            continue
         verifiable = (
             old_row is not None and day not in incoming_by_day
             and bool(old_row.get("path") or old_row.get("parts"))
@@ -464,7 +557,16 @@ def archive_observations(
     for f in expired_files:
         f.unlink()
         changed_files += 1
+    quarantine_dir = archive_dir / "quarantine"
+    if quarantine_dir.exists():
+        for f in sorted(quarantine_dir.glob("*.json")):
+            if f.stem < window[0]:
+                f.unlink()
+                changed_files += 1
     _remove_empty_dirs(archive_dir / "days")
+    _remove_empty_dirs(quarantine_dir)
+    if quarantine_dir.exists() and not any(quarantine_dir.iterdir()):
+        quarantine_dir.rmdir()
 
     extra = list(scanned_windows or [])
     if scanned_window:
@@ -516,6 +618,13 @@ def archive_observations(
         rows.append(row)
         day += timedelta(days=1)
 
+    lost_list = [lost_entries[d] for d in sorted(lost_days)]
+    integrity = {
+        "state": "shard_lost" if lost_list else "ok",
+        "alert": integrity_alert(sorted(lost_days)),
+        "lost_days": lost_list,
+        "recoveries": recoveries,
+    }
     first_enabled = (old_index or {}).get("archive_first_enabled_utc") or format_utc(now)
     index = {
         "schema": SCHEMA_INDEX,
@@ -547,6 +656,7 @@ def archive_observations(
         "availability_note": HISTORY_NOTE,
         "split_note": SPLIT_NOTE,
         "seed_note": SEED_NOTE,
+        "integrity": integrity,
         "days": rows,
         "status": STATUS_TEXT,
     }
@@ -557,6 +667,11 @@ def archive_observations(
         "dropped_before_cutoff": dropped_before_cutoff, "dropped_invalid": dropped_invalid,
         "split_days": sorted(set(split_days)),
         "lost_days": sorted(lost_days), "dropped_lost_day": dropped_lost_day,
+        "quarantined_lost_day": quarantined_lost_day,
+        "integrity": {
+            "state": integrity["state"], "alert": integrity["alert"], "lost_days": sorted(lost_days),
+            "quarantined_observations": sum(e.get("quarantined_observations") or 0 for e in lost_list),
+        },
     }
 
 
@@ -614,8 +729,34 @@ def verify_archive(archive_dir: Path) -> dict:
     if index is None:
         raise ValueError("no index.json")
     checked = 0
+    lost_rows = sorted(r.get("date") for r in index["days"] if r.get("shard_lost"))
+    integrity = index.get("integrity")
+    if integrity is None:
+        if lost_rows:
+            raise ValueError(f"rows flagged shard_lost {lost_rows} but the index has no integrity block")
+        state = "absent"  # index written before integrity tracking existed
+    else:
+        listed = sorted(str(e.get("date")) for e in integrity.get("lost_days") or [])
+        if listed != lost_rows:
+            raise ValueError(f"shard_lost rows {lost_rows} differ from integrity.lost_days {listed}; "
+                             "a lost day is cleared only by history.py recover")
+        state = integrity.get("state")
+        if state != ("shard_lost" if lost_rows else "ok"):
+            raise ValueError(f"integrity.state {state!r} contradicts shard_lost rows {lost_rows}")
+        if lost_rows and not integrity.get("alert"):
+            raise ValueError("shard_lost without an integrity alert")
+    now = parse_utc(index["generated_utc"])
+    cutoff = date.fromisoformat(index["cutoff_date_utc"])
+    quarantine_dir = archive_dir / "quarantine"
+    for f in sorted(quarantine_dir.glob("*.json")) if quarantine_dir.exists() else []:
+        if f.stem not in lost_rows:
+            raise ValueError(f"{f}: quarantine file for a date that is not shard_lost")
+        _read_quarantine(f, f.stem, now, cutoff)
     for row in index["days"]:
         day, count = row.get("date"), row.get("count")
+        if row.get("shard_lost") and (row.get("coverage") != "none" or count is not None or row.get("path")
+                                      or row.get("parts") or row.get("sha256") or row.get("scanned_seconds")):
+            raise ValueError(f"{day}: a shard_lost row must be coverage none, scanned_seconds 0, count null, no files")
         if (count is None) != (row.get("coverage") == "none"):
             raise ValueError(f"{day}: count must be null iff coverage is none")
         listed = [(row["path"], count)] if row.get("path") else [(p["path"], p.get("count")) for p in row.get("parts") or []]
@@ -633,7 +774,260 @@ def verify_archive(archive_dir: Path) -> dict:
         if found != count:
             raise ValueError(f"{day}: parts hold {found} features but the row count is {count}")
         checked += 1
-    return {"rows": len(index["days"]), "shards_checked": checked}
+    return {"rows": len(index["days"]), "shards_checked": checked, "integrity": state, "lost_days": lost_rows}
+
+
+def _covered_gap_seconds(required: list[tuple[datetime, datetime]], cover: list[tuple[datetime, datetime]]) -> int:
+    """Seconds of ``required`` intervals not inside the union of ``cover``."""
+    gap = 0.0
+    for start, end in required:
+        cursor = start
+        for c_start, c_end in sorted(cover):
+            if c_end <= cursor or c_start >= end:
+                continue
+            if c_start > cursor:
+                gap += (c_start - cursor).total_seconds()
+            cursor = max(cursor, c_end)
+            if cursor >= end:
+                break
+        if cursor < end:
+            gap += (end - cursor).total_seconds()
+    return int(math.ceil(gap))
+
+
+def _expected_files(evidence: dict) -> list[dict]:
+    if evidence.get("path"):
+        return [{"path": evidence["path"], "bytes": evidence.get("bytes"), "sha256": evidence.get("sha256"),
+                 "count": evidence.get("count")}]
+    return [{"path": p["path"], "bytes": p.get("bytes"), "sha256": p.get("sha256"), "count": p.get("count")}
+            for p in evidence.get("parts") or []]
+
+
+def recover_day(
+    archive_dir: Path,
+    day: str,
+    *,
+    now: datetime,
+    from_shards: Iterable[Path] | None = None,
+    rebuild_record: Path | None = None,
+    recorded_index: Path | None = None,
+    accept_unanchored: bool = False,
+    max_shard_bytes: int = MAX_SHARD_BYTES,
+    target_shard_bytes: int = TARGET_SHARD_BYTES,
+) -> dict:
+    """Clear a shard_lost date only from verified evidence, with an audit record.
+
+    ``from_shards``: earlier copies of the lost file(s) (e.g. ``git show``) whose
+    bytes and sha256 must equal a previously recorded index entry and whose
+    feature counts must equal the recorded counts. ``rebuild_record``: a fresh,
+    independent collect.py run record whose examined slots cover every second
+    the archive recorded as searched on that date and whose flash count equals
+    the recorded count (``accept_unanchored`` only when no count was recorded).
+    Every gate runs before anything is written; a refusal changes nothing.
+    """
+    if (from_shards is None) == (rebuild_record is None):
+        raise ValueError("recover needs exactly one of from_shards / rebuild_record")
+    now = now.astimezone(timezone.utc)
+    cutoff = year_ago(now.date())
+    archive_dir = Path(archive_dir)
+    index = _load_old_index(archive_dir / "index.json")
+    if index is None:
+        raise ValueError("no index.json")
+    day = date.fromisoformat(day).isoformat()
+    row = next((r for r in index["days"] if r.get("date") == day), None)
+    if not row or not row.get("shard_lost"):
+        raise ValueError(f"{day} is not marked shard_lost; nothing to recover")
+    integrity = index.setdefault("integrity", {"state": "shard_lost", "alert": None, "lost_days": [], "recoveries": []})
+    entry = next((e for e in integrity.get("lost_days") or [] if e.get("date") == day), None) or {}
+
+    evidence = entry.get("last_recorded")
+    anchor: dict = {"source": "lost_entry"}
+    if not (evidence and evidence.get("count")) and recorded_index:
+        raw = Path(recorded_index).read_bytes()
+        earlier = json.loads(raw)
+        if not isinstance(earlier, dict) or earlier.get("schema") not in (SCHEMA_INDEX, SCHEMA_INDEX_V1):
+            raise ValueError(f"{recorded_index}: not a lightning history index")
+        old = next((r for r in earlier.get("days") or [] if r.get("date") == day and (r.get("path") or r.get("parts"))), None)
+        if old:
+            evidence = _evidence(old, earlier.get("generated_utc"))
+            anchor = {"source": "recorded_index", "index_sha256": hashlib.sha256(raw).hexdigest()}
+    if evidence and not evidence.get("count"):
+        evidence = None
+    if evidence:
+        anchor.update({k: evidence.get(k) for k in ("index_generated_utc", "count", "bytes", "sha256", "path")})
+        if evidence.get("parts"):
+            anchor["parts"] = [{"path": p["path"], "sha256": p.get("sha256"), "count": p.get("count")} for p in evidence["parts"]]
+
+    disk, _ = _discover_shards(archive_dir, cutoff, now.date())
+    on_disk = disk.get(day, {"file": None, "parts": {}})
+    present = {f.relative_to(archive_dir).as_posix(): f
+               for f in ([on_disk["file"]] if on_disk["file"] else []) + list(on_disk["parts"].values())}
+    held = _read_quarantine(archive_dir / quarantine_path(day), day, now, cutoff)
+
+    def checked_features(text: str, label: str) -> list[dict]:
+        out = []
+        for record in _features_from_text(text, label, day):
+            valid = validate_feature(record, now, cutoff)
+            if valid is None or valid[0] != day:
+                raise ValueError(f"{label}: invalid or wrong-day observation")
+            out.append(record)
+        return out
+
+    writes: dict[str, str] = {}
+    inputs: list[dict] = []
+    audit: dict = {"date": day, "recovered_utc": format_utc(now), "lost_detected_utc": entry.get("detected_utc"),
+                   "missing_paths": entry.get("missing_paths"), "verified_against": anchor if evidence else None}
+    if from_shards is not None:
+        if not evidence:
+            raise ValueError(f"{day}: no previously recorded index entry (sha256 + count) to verify the shard against; "
+                             "pass --recorded-index with an earlier index.json from git history, or use --rebuild")
+        expected = _expected_files(evidence)
+        if any(not e["sha256"] or e["bytes"] is None or e["count"] is None for e in expected):
+            raise ValueError(f"{day}: the recorded entry lacks sha256/bytes/count; it cannot verify a shard")
+        supplied: dict[str, bytes] = {}
+        for path in from_shards:
+            data = Path(path).read_bytes()
+            digest = hashlib.sha256(data).hexdigest()
+            match = next((e for e in expected if e["sha256"] == digest and e["bytes"] == len(data)), None)
+            if match is None:
+                raise ValueError(f"{path}: sha256 {digest} / {len(data)} bytes match no recorded file of {day} "
+                                 f"({', '.join(e['path'] + ' ' + e['sha256'] for e in expected)}); refusing")
+            supplied[match["path"]] = data
+            inputs.append({"file": Path(path).name, "as": match["path"], "sha256": digest, "bytes": len(data)})
+        unexpected = sorted(set(present) - {e["path"] for e in expected})
+        if unexpected:
+            raise ValueError(f"{unexpected}: files on disk for {day} that the recorded entry does not list; move them aside")
+        ids: set[str] = set()
+        total = 0
+        for e in expected:
+            if e["path"] in supplied:
+                data = supplied[e["path"]]
+            elif e["path"] in present:
+                data = present[e["path"]].read_bytes()
+                if hashlib.sha256(data).hexdigest() != e["sha256"] or len(data) != e["bytes"]:
+                    raise ValueError(f"{e['path']}: surviving file differs from the recorded sha256; refusing")
+                inputs.append({"file": e["path"], "as": e["path"], "sha256": e["sha256"], "bytes": e["bytes"],
+                               "source": "survivor_on_disk"})
+            else:
+                raise ValueError(f"{e['path']}: recorded file is still missing; supply it with --from-shard")
+            features = checked_features(data.decode("utf-8"), e["path"])
+            if len(features) != e["count"]:
+                raise ValueError(f"{e['path']}: {len(features)} features but the recorded count is {e['count']}")
+            for f in features:
+                if f["id"] in ids:
+                    raise ValueError(f"{e['path']}: duplicate feature ID {f['id']}")
+                ids.add(f["id"])
+            total += len(features)
+            writes[e["path"]] = data.decode("utf-8")
+        if total != evidence["count"]:
+            raise ValueError(f"{day}: files hold {total} features but the recorded count is {evidence['count']}")
+        new_row = {k: evidence.get(k) for k in ("count", "bytes", "sha256", "path", "parts",
+                                                 "first_observation_utc", "last_observation_utc")}
+        audit.update({"method": "from_shard", "byte_identical": True})
+    else:
+        raw = Path(rebuild_record).read_bytes()
+        record = json.loads(raw)
+        if not isinstance(record, dict) or record.get("schema") != RUN_RECORD_SCHEMA:
+            raise ValueError(f"{rebuild_record}: not a collect.py run record")
+        if record.get("outcome") != "success" or int(record.get("products_examined") or 0) < 1:
+            raise ValueError(f"{rebuild_record}: the rebuild collection did not succeed with examined products")
+        if record.get("slots_parsed") is not True:
+            raise ValueError(f"{rebuild_record}: slots_parsed is not true, so examined slots are unproven; refusing")
+        run_utc = parse_utc(record["run_utc"])
+        detected = entry.get("detected_utc")
+        if detected and run_utc <= parse_utc(detected):
+            raise ValueError(f"{rebuild_record}: run_utc {record['run_utc']} is not after the loss was detected "
+                             f"({detected}); an independent rebuild must be a fresh EUMETSAT download")
+        day_start = datetime.combine(date.fromisoformat(day), time.min, tzinfo=timezone.utc)
+        day_end = day_start + timedelta(days=1)
+        required = []
+        for w in index.get("scan_windows") or []:
+            start, end = max(parse_utc(w["start_utc"]), day_start), min(parse_utc(w["end_utc"]), day_end)
+            if end > start:
+                required.append((start, end))
+        if not required:
+            required = [(day_start, day_end)]  # nothing recorded: the rebuild must cover the whole date
+        cover = [(parse_utc(w["start_utc"]), parse_utc(w["end_utc"])) for w in windows_from_run_record(record)]
+        uncovered = _covered_gap_seconds(required, cover)
+        if uncovered:
+            raise ValueError(f"{rebuild_record}: rebuild does not cover {uncovered} s of the time the archive "
+                             f"recorded as searched on {day}; refusing a partial count")
+        found: dict[str, dict] = {}
+        for feature in record.get("features") or []:
+            valid = validate_feature(feature, now, cutoff)
+            if valid and valid[0] == day:
+                found.setdefault(feature["id"], feature)
+        survivors: set[str] = set()
+        for rel, f in present.items():
+            survivors |= {r["id"] for r in _read_features(f, day)}
+        lacking = (set(held) | survivors) - set(found)
+        if lacking:
+            raise ValueError(f"{rebuild_record}: rebuild lacks {len(lacking)} flash(es) already observed for {day} "
+                             "(quarantined or still on disk); it is not complete")
+        if evidence:
+            if len(found) != evidence["count"]:
+                raise ValueError(f"{rebuild_record}: rebuild found {len(found)} flashes on {day} but the recorded count "
+                                 f"is {evidence['count']}; missing history is never replaced by a different count")
+        elif not accept_unanchored:
+            raise ValueError(f"{day}: no previously recorded count anchors the rebuild; re-run with "
+                             "--accept-unanchored only after an independent check, or pass --recorded-index")
+        if not found:
+            raise ValueError(f"{rebuild_record}: rebuild found no flashes for a date that had a shard; refusing")
+        records = sorted(found.values(), key=lambda f: (f["properties"]["time_utc"], f["id"]))
+        plan = _plan_shards(day, records, max_bytes=max_shard_bytes, target_bytes=target_shard_bytes)
+        writes = {rel: content for rel, content, _ in plan}
+        if len(plan) == 1 and "hour" not in plan[0][2]:
+            rel, _, summary = plan[0]
+            new_row = {**{k: summary[k] for k in ("count", "bytes", "sha256", "first_observation_utc",
+                                                    "last_observation_utc")}, "path": rel, "parts": None}
+        else:
+            parts = [{"hour": s["hour"], "path": rel, "count": s["count"], "bytes": s["bytes"], "sha256": s["sha256"],
+                      "first_observation_utc": s["first_observation_utc"], "last_observation_utc": s["last_observation_utc"]}
+                     for rel, _, s in plan]
+            new_row = {"count": len(records), "bytes": sum(p["bytes"] for p in parts), "sha256": None, "path": None,
+                       "parts": parts, "first_observation_utc": records[0]["properties"]["time_utc"],
+                       "last_observation_utc": records[-1]["properties"]["time_utc"]}
+        identical = bool(evidence) and sorted(
+            (e["path"], e["sha256"]) for e in _expected_files(evidence)) == sorted(
+            (rel, _sha256(content)) for rel, content in writes.items())
+        inputs.append({"file": Path(rebuild_record).name, "sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)})
+        audit.update({"method": "rebuild", "byte_identical": identical, "rebuild": {
+            "run_utc": record["run_utc"], "products_examined": record.get("products_examined"),
+            "required_seconds": int(sum((e - s).total_seconds() for s, e in required)), "uncovered_seconds": 0,
+            "anchored": bool(evidence)}})
+
+    # All gates passed: write the verified files, restore the row, audit, then re-index.
+    for rel, f in present.items():
+        if rel not in writes:
+            f.unlink()
+    for rel, content in writes.items():
+        _write_if_changed(archive_dir / rel, content)
+    row.pop("shard_lost", None)
+    row.update({k: v for k, v in new_row.items() if k != "parts"})
+    if new_row.get("parts"):
+        row["parts"] = new_row["parts"]
+    else:
+        row.pop("parts", None)
+    audit["inputs"] = inputs
+    audit["result"] = {"count": new_row["count"], "bytes": new_row["bytes"], "sha256": new_row["sha256"],
+                       "path": new_row["path"],
+                       "parts": [{"path": p["path"], "sha256": p["sha256"], "count": p["count"]}
+                                 for p in new_row.get("parts") or []] or None}
+    audit["quarantined_merged"] = len(held)
+    integrity["lost_days"] = [e for e in integrity.get("lost_days") or [] if e.get("date") != day]
+    integrity["recoveries"] = list(integrity.get("recoveries") or []) + [audit]
+    _write_if_changed(archive_dir / "index.json", _serialise(index))
+    result = archive_observations(archive_dir, list(held.values()), now=now,
+                                  lookback_hours=index.get("last_run_lookback_hours"),
+                                  max_shard_bytes=max_shard_bytes, target_shard_bytes=target_shard_bytes)
+    q_file = archive_dir / quarantine_path(day)
+    if q_file.exists():
+        q_file.unlink()
+        _remove_empty_dirs(archive_dir / "quarantine")
+        if not any((archive_dir / "quarantine").iterdir()):
+            (archive_dir / "quarantine").rmdir()
+    checked = verify_archive(archive_dir)
+    return {"index": result["index"], "audit": audit, "verify": checked}
 
 
 def main(argv=None):
@@ -648,9 +1042,36 @@ def main(argv=None):
     ingest.add_argument("--now", default=None, help="ISO-8601 UTC override (tests/fixtures)")
     verify = sub.add_parser("verify", help="Verify shard bytes/sha256 against the index")
     verify.add_argument("--archive-dir", type=Path, default=Path("data/history"))
+    recover = sub.add_parser(
+        "recover", help="Clear a shard_lost date from verified evidence only (see docs/HISTORY_ONE_YEAR.md)")
+    recover.add_argument("--archive-dir", type=Path, default=Path("data/history"))
+    recover.add_argument("--day", required=True, help="UTC date YYYY-MM-DD flagged shard_lost")
+    source = recover.add_mutually_exclusive_group(required=True)
+    source.add_argument("--from-shard", type=Path, nargs="+",
+                        help="Earlier copies of the lost file(s), e.g. from git show; must match the recorded sha256")
+    source.add_argument("--rebuild", action="store_true",
+                        help="Use an independent, fresh EUMETSAT collection given by --rebuild-record")
+    recover.add_argument("--rebuild-record", type=Path, default=None, help="collect.py run record covering the date")
+    recover.add_argument("--recorded-index", type=Path, default=None,
+                         help="Earlier index.json (git history) holding the recorded entry, when the lost entry has none")
+    recover.add_argument("--accept-unanchored", action="store_true",
+                         help="Rebuild only: allow a date with no recorded count (audited as anchored=false)")
+    recover.add_argument("--now", default=None, help="ISO-8601 UTC override (tests/fixtures)")
     args = parser.parse_args(argv)
     if args.command == "verify":
-        print(json.dumps(verify_archive(args.archive_dir)))
+        checked = verify_archive(args.archive_dir)
+        print(json.dumps(checked))
+        if checked["integrity"] == "shard_lost":
+            print(integrity_alert(checked["lost_days"]), file=sys.stderr)
+        return 0
+    if args.command == "recover":
+        if args.rebuild and not args.rebuild_record:
+            parser.error("--rebuild needs --rebuild-record")
+        now = parse_utc(args.now) if args.now else datetime.now(timezone.utc)
+        result = recover_day(args.archive_dir, args.day, now=now, from_shards=args.from_shard,
+                             rebuild_record=args.rebuild_record if args.rebuild else None,
+                             recorded_index=args.recorded_index, accept_unanchored=args.accept_unanchored)
+        print(json.dumps({"recovered": result["audit"], "verify": result["verify"]}, indent=1))
         return 0
     record = json.loads(args.run_record.read_text(encoding="utf-8"))
     if record.get("schema") != RUN_RECORD_SCHEMA:
@@ -677,6 +1098,8 @@ def main(argv=None):
           f"{result['files_changed']} files changed, {result['days_expired']} days expired, "
           f"{result['dropped_before_cutoff']} observations older than the cutoff clamped away, "
           f"split days: {result['split_days'] or 'none'}.")
+    if result["integrity"]["state"] != "ok":
+        print(result["integrity"]["alert"], file=sys.stderr)
     return 0
 
 
