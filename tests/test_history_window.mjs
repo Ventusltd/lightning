@@ -482,3 +482,26 @@ test('Caption templates carry window, actual, flashes, refresh, searched, warnin
   assert.match(a.flashes, /3 archived on 366 overlapping UTC dates · none drawn \(summary mode/);
   assert.match(a.warning, /precede archive start 2026-10-20 \(not zero\)/);
 });
+
+// --------------------------------------------------------------- shard_lost
+test('A shard_lost date is unknown: its scan-window seconds are not claimed as searched, and it is named', async () => {
+  const lostRow = { coverage: 'none', scanned_seconds: 0, count: null, bytes: null, path: null, sha256: null,
+    first_observation_utc: null, last_observation_utc: null, shard_lost: true };
+  const raw = v2Index({ '2026-10-24': lostRow }, {
+    archived_observations: 1,
+    integrity: { state: 'shard_lost', alert: 'INTEGRITY ALERT: 1 UTC date lost its listed shard (2026-10-24)', lost_days: [{ date: '2026-10-24' }], recoveries: [] }
+  });
+  const idx = normaliseIndex(raw);
+  const c = windowCoverage(idx, selectUtcDates('2026-10-24', '2026-10-25'));
+  assert.equal(c.searchedSeconds, 43200);           // only 2026-10-25's half day; the lost day is not "searched"
+  assert.deepEqual(c.unknownDays, ['2026-10-24']);
+  assert.deepEqual(c.lostDays, ['2026-10-24']);
+  assert.equal(idx.integrityState, 'shard_lost');
+  const r = await client(fixtures(raw)).loadWindow(selectUtcDates('2026-10-24', '2026-10-25'));
+  assert.equal(r.status.state, STATES.PARTIAL);
+  assert.ok(r.status.reasons.some((x) => /1 date lost its archive shard/.test(x)), r.status.reasons.join('; '));
+  const l = captionLines(r, { nowMs: NOW });
+  assert.match(l.warning, /Integrity: 1 UTC date lost its archive shard \(2026-10-24\); count unknown, not zero/);
+  // Healthy indexes stay quiet.
+  assert.equal(normaliseIndex(v2Index()).integrityState, 'ok');
+});
