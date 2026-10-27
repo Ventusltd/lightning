@@ -336,6 +336,8 @@ def build_status(
         # Unreadable products: their slots are not searched time (unknown, not zero).
         "last_products_unparsed": (record or {}).get("products_unparsed"),
         "last_unparsed_products": (record or {}).get("unparsed_products"),
+        # Per-product download retries of the last attempt (success or failure).
+        "last_download_retries": retry_counts((record or {}).get("download_retries")),
         "last_slots_examined_utc": (record or {}).get("slots_examined_utc") if collected else None,
         "last_scanned_ranges": (record or {}).get("scanned_ranges") if collected else None,
         "last_unscanned_ranges": (record or {}).get("unscanned_ranges") if collected else None,
@@ -366,6 +368,15 @@ def build_status(
 
 
 BACKFILL_OK = ("completed", "time_budget")
+RETRY_COUNT_KEYS = ("retries", "products_retried", "products_failed", "rate_limit_waits", "rate_limit_wait_seconds",
+                    "backoff_seconds", "token_refreshes", "max_consecutive_failed_products", "reasons")
+
+
+def retry_counts(stats: dict | None) -> dict | None:
+    """Compact download-retry counts and reasons from a run record (no per-event list)."""
+    if not isinstance(stats, dict):
+        return None
+    return {k: stats.get(k) for k in RETRY_COUNT_KEYS}
 
 
 def backfill_status(
@@ -378,6 +389,7 @@ def backfill_status(
     error: str | None,
     index: dict | None,
     unparsed_by_day: dict | None = None,
+    retries_by_day: dict | None = None,
 ) -> dict:
     """Record a backfill run WITHOUT touching the hourly heartbeat.
 
@@ -400,6 +412,10 @@ def backfill_status(
         # Unreadable products in the filled dates' searches; their slots stay unknown.
         "unparsed_products": sum(unparsed_by_day.values()) if unparsed_by_day is not None else None,
         "unparsed_products_by_day": dict(unparsed_by_day) if unparsed_by_day is not None else None,
+        # Download retries in the filled dates' searches (only dates with any retry are listed).
+        "download_retries": (sum(int(v.get("retries") or 0) for v in retries_by_day.values())
+                             if retries_by_day is not None else None),
+        "download_retries_by_day": dict(retries_by_day) if retries_by_day is not None else None,
         "note": ("Backfilled dates carry the examined 10-minute slots of a fresh whole-day EUMETSAT search; "
                  "dates not filled stay never searched (unknown, not zero)."),
     }
