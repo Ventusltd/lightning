@@ -23,11 +23,16 @@ on:
 permissions:
   contents: write
 
-# Same group as update-lightning.yml: the hourly job and a backfill never run
-# at the same time (a queued hourly run waits; its self-healing lookback
-# catches up the hours a backfill held it back).
+# Its OWN group, never the hourly `uk-lightning-update`: a backfill runs for
+# up to ~3.5 h and, while it shared the hourly group, the hourly feed queued
+# behind it (27 Oct 2026: run 40476905747 waited 91 min behind backfill
+# 40464739813). Two backfills still never overlap. The hourly job and a
+# backfill may now run at the same time; both commit with
+# ci/push-with-replay.sh, which on a rejected push resets to the new main and
+# re-applies this run's dates from the saved run records (no textual merge of
+# index.json or status.json).
 concurrency:
-  group: uk-lightning-update
+  group: uk-lightning-backfill
   cancel-in-progress: false
 
 jobs:
@@ -124,23 +129,23 @@ jobs:
       #    unverified is committed), then commit data/history + data/status.json.
       - name: Verify and commit backfilled dates (one commit)
         if: ${{ steps.backfill.outcome == 'success' }}
+        env:
+          STOPPED: ${{ steps.backfill.outputs.stopped }}
+          ERROR: ${{ steps.backfill.outputs.error }}
         run: |
           python history.py verify --archive-dir data/history
-          git add -A -- data/status.json
-          if [ -d data/history ]; then
-            git add -A -- data/history
-          fi
-          if git diff --cached --quiet; then
-            echo "No backfilled dates or status change to commit"
-            exit 0
-          fi
           filled=$(grep -c . "$RUNNER_TEMP/backfill-filled.txt" || true)
           range=$(paste -sd, "$RUNNER_TEMP/backfill-filled.txt")
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "data: backfill ${filled} never-searched UTC day(s) of the one-year archive" \
-                     -m "Dates: ${range:-none}. Stopped: ${{ steps.backfill.outputs.stopped }}."
-          git push || (git pull --rebase origin main && git push)
+          # On a rejected push (the hourly job committed meanwhile) the helper
+          # resets to the new main and replays every filled date from its saved
+          # run record; a date the hourly job has since searched is skipped.
+          PUSH_BODY="Dates: ${range:-none}. Stopped: ${STOPPED}." \
+            bash ci/push-with-replay.sh \
+              "data: backfill ${filled} never-searched UTC day(s) of the one-year archive" \
+              'bash ci/replay-backfill.sh' \
+              data/status.json data/history
 
       # 4. A stop on an EUMETSAT error or an archive refusal turns the run red
       #    AFTER the verified dates were committed; a time-budget stop warns.

@@ -106,12 +106,13 @@ class BackfillWorkflowTextTests(unittest.TestCase):
         self.assertRegex(on_block, r'days:\n(?:\s+.*\n)*?\s+default: "7"')
         self.assertRegex(on_block, r"dry_run:\n(?:\s+.*\n)*?\s+type: boolean")
 
-    def test_shares_the_hourly_concurrency_group_without_cancelling(self):
+    def test_has_its_own_concurrency_group_so_it_never_queues_the_hourly_feed(self):
         def group(path):
             block = path.read_text().split("\nconcurrency:\n", 1)[1].split("\n\n", 1)[0]
             return (re.search(r"group:\s*(\S+)", block).group(1), re.search(r"cancel-in-progress:\s*(\S+)", block).group(1))
-        self.assertEqual(group(BACKFILL), ("uk-lightning-update", "false"))
-        self.assertEqual(group(BACKFILL), group(HOURLY))
+        self.assertEqual(group(BACKFILL), ("uk-lightning-backfill", "false"))
+        self.assertEqual(group(HOURLY), ("uk-lightning-update", "false"))
+        self.assertNotEqual(group(BACKFILL)[0], group(HOURLY)[0])
 
     def test_search_step_uses_the_eumetsat_secrets_and_rebuild_day(self):
         text = BACKFILL.read_text()
@@ -152,6 +153,7 @@ class BackfillWorkflowShellTests(unittest.TestCase):
         source = source.replace('\nif __name__ == "__main__":', FAKE_DOWNLOAD + '\nif __name__ == "__main__":')
         (self.repo / "collect.py").write_text(source)
         (self.repo / ".gitignore").write_text("__pycache__/\n")
+        shutil.copytree(ROOT / "ci", self.repo / "ci")
 
         now = datetime.now(timezone.utc)
         self.today = now.date()
@@ -194,8 +196,8 @@ class BackfillWorkflowShellTests(unittest.TestCase):
         self.assertEqual(plan.returncode, 0, plan.stderr)
         search = self.run_step(SEARCH, extra)
         out = outputs(Path(self.env["GITHUB_OUTPUT"]))
-        values = {"steps.backfill.outputs.stopped": out.get("stopped", "")}
-        commit = self.run_step(COMMIT, extra, values) if search.returncode == 0 else None
+        commit_env = {**(extra or {}), "STOPPED": out.get("stopped", ""), "ERROR": out.get("error", "")}
+        commit = self.run_step(COMMIT, commit_env) if search.returncode == 0 else None
         surface = self.run_step(SURFACE, {**(extra or {}), "STOPPED": out.get("stopped", ""), "ERROR": out.get("error", ""),
                                      "OUTCOME": "success" if search.returncode == 0 else "failure"})
         self.git("fetch", "-q", "origin")

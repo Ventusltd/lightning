@@ -63,6 +63,35 @@ while any date is `shard_lost` (the archive is never reported entirely healthy t
 searched and unsearched ranges, feed counts and the archive outcome, plus the last manual
 `backfill` block (see *Backfill* below; written only by the backfill workflow).
 
+`heartbeat` explains staleness: `cron_utc` (`17 * * * *` plus the `47 * * * *` fallback),
+`next_expected_run_utc`, `late_after_utc` (last attempt + 90 min), `this_run` (`trigger`,
+`run_id`, `run_created_utc`, `job_started_utc`, `queued_minutes`), `gap_before_this_run`
+(`previous_attempt_utc`, `minutes`, `hourly_slots_without_a_run`, `cause`: `on_time`,
+`github_schedule_late_or_dropped`, `queued_behind_another_run`,
+`github_schedule_late_then_queued`, `no_scheduled_run_until_manual_start`, `unknown`), a
+one-line `explanation` and an `if_late` sentence for readers who find the heartbeat older than
+`late_after_utc` (a run that never started cannot write its own cause; the next run does).
+
+### Schedule and concurrency
+
+GitHub's scheduler does not guarantee scheduled runs. On 27 Oct 2026 the hourly cron (live from
+02:38 UTC) produced runs for only 2 of the 13 slots from 03:17 to 15:17 UTC (08:55 and 15:19);
+no run was cancelled or skipped by concurrency (the Actions API lists none). The 08:55 run then
+waited 91 min queued behind a backfill in the shared group `uk-lightning-update`. Since then:
+
+- the backfill has its own group, `uk-lightning-backfill`; only the hourly workflow uses
+  `uk-lightning-update`, whose runs are capped at 55 min, so the feed can only queue behind
+  another hourly run, never behind a multi-hour backfill;
+- both writers commit with `ci/push-with-replay.sh`: on a rejected push they reset to the new
+  `main` and **replay** their own inputs (`ci/replay-hourly-archive.sh` re-runs ingest, verify
+  and the status write from the run record; `ci/replay-backfill.sh` re-ingests each filled date
+  from its saved whole-day record, dropping a date the hourly job has meanwhile searched). There
+  is no textual `git pull --rebase` of `index.json` or `status.json`;
+- a fallback cron slot at :47 runs a gate job (`status.py due`) that skips when a run succeeded
+  less than 40 min earlier, so one dropped :17 slot costs about 30 min. Longer scheduler outages
+  can still happen; only an external trigger (a `workflow_dispatch` call from outside GitHub's
+  scheduler) removes that dependency.
+
 ## Archive layout
 
 ```
@@ -174,9 +203,9 @@ Rules:
 `.github/workflows/backfill-lightning.yml` is **`workflow_dispatch` only** (no schedule). Inputs:
 `end_date` (newest UTC date, empty = yesterday UTC; must be before today), `days` (dates to
 consider back from `end_date`, default 7, **1–31**), `dry_run` (only print the plan: no EUMETSAT
-call, no commit). It shares the concurrency group **`uk-lightning-update`** with the hourly job
-(`cancel-in-progress: false`), so the two never run at the same time; an hourly run queued
-behind a backfill catches up through its self-healing lookback. Writing runs must be on `main`.
+call, no commit). It has its **own** concurrency group **`uk-lightning-backfill`**
+(`cancel-in-progress: false`): two backfills never overlap, and the hourly job is never queued
+behind one (see *Schedule and concurrency*). Writing runs must be on `main`.
 
 1. **Plan** — `history.py backfill-plan` lists the dates in `[end_date − days + 1, end_date]`,
    newest first, whose row is `coverage none / count null` and **not `shard_lost`** (those need
@@ -213,7 +242,7 @@ behind a backfill catches up through its self-healing lookback. Writing runs mus
    `consecutive_failures`, `last_successful_scan_*`, `freshness`), so a backfill cannot move the
    lookback anchor; the hourly `status.py write` carries the `backfill` block forward. Then
    `history.py verify` runs and `data/history` + `data/status.json` are committed in **one
-   commit** per run. An `eumetsat_error` or `archive_refused` stop turns the run red after that
+   commit** per run (replayed onto a newer `main` if the hourly job pushed meanwhile). An `eumetsat_error` or `archive_refused` stop turns the run red after that
    commit; a `time_budget` stop only warns.
 
 **Does EUMETSAT's Data Store keep past MTG LI L2-LFL products? Unverified.** Checked 27 Oct 2026
