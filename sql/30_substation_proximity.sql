@@ -50,14 +50,16 @@ WITH near AS (
 SELECT
   s.site_code, s.name, s.transmission_owner, s.max_kv, s.lon, s.lat, s.matched_by,
   -- 0 is a genuine zero over the searched hours only; it is never a claim about unsearched time.
-  coalesce(n.optical_flash_proximity_5km, 0)  AS optical_flash_proximity_5km,
-  coalesce(n.optical_flash_proximity_10km, 0) AS optical_flash_proximity_10km,
-  coalesce(n.optical_flash_proximity_20km, 0) AS optical_flash_proximity_20km,
+  -- With no searched hours at all there is nothing to count: NULL (UNKNOWN), never 0.
+  CASE WHEN c.hours_observed > 0 THEN coalesce(n.optical_flash_proximity_5km, 0) END  AS optical_flash_proximity_5km,
+  CASE WHEN c.hours_observed > 0 THEN coalesce(n.optical_flash_proximity_10km, 0) END AS optical_flash_proximity_10km,
+  CASE WHEN c.hours_observed > 0 THEN coalesce(n.optical_flash_proximity_20km, 0) END AS optical_flash_proximity_20km,
   n.first_flash_within_20km_utc,
   n.last_flash_within_20km_utc,
   c.hours_observed, c.hours_expected,
   c.days_full, c.days_partial, c.days_never_searched, c.days_shard_lost,
-  CASE WHEN c.hours_observed >= c.hours_expected THEN 'complete'
+  CASE WHEN NOT c.hours_observed > 0 THEN 'UNKNOWN'
+       WHEN c.hours_observed >= c.hours_expected THEN 'complete'
        ELSE 'lower_bound_partial_coverage' END AS count_state
 FROM substations s
 CROSS JOIN archive_coverage c

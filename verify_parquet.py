@@ -207,15 +207,17 @@ def verify(archive_dir: Path, out_dir: Path, *, substations_path: Path | None = 
         expected[site["site_code"]] = counts
     hours_observed = round(sum(d["hours_observed"] or 0 for d in days), 4)
     complete = all(d["coverage"] == "full" for d in days)
+    nothing_searched = not hours_observed > 0
+    state = "UNKNOWN" if nothing_searched else ("complete" if complete else "lower_bound_partial_coverage")
     proximity = pq.read_table(store / "rollups/substation_optical_flash_proximity.parquet").to_pylist()
     check(len(proximity) == len(sites), "proximity rollup does not list every located substation")
     for row in proximity:
         got = [row["optical_flash_proximity_5km"], row["optical_flash_proximity_10km"], row["optical_flash_proximity_20km"]]
-        check(got == expected[row["site_code"]], f"proximity {row['site_code']}: {got} != recomputed {expected[row['site_code']]}")
+        want = [None, None, None] if nothing_searched else expected[row["site_code"]]
+        check(got == want, f"proximity {row['site_code']}: {got} != recomputed {want}")
         check(abs(row["hours_observed"] - hours_observed) < 1e-3 and row["hours_expected"] == 24.0 * len(days),
               f"proximity {row['site_code']}: coverage hours differ")
-        check(row["count_state"] == ("complete" if complete else "lower_bound_partial_coverage"),
-              f"proximity {row['site_code']}: count_state wrong")
+        check(row["count_state"] == state, f"proximity {row['site_code']}: count_state wrong")
     check(manifest["derived_from"]["substations"]["upstream_sha256"] == pin["upstream_sha256"],
           "manifest substation pin differs from the extract")
     for name in ("substation_optical_flash_proximity", "substation_optical_flash_proximity_daily"):
@@ -248,7 +250,7 @@ def verify(archive_dir: Path, out_dir: Path, *, substations_path: Path | None = 
     check(head["schema"] == rollups.SCHEMA_HEADLINE and "not ground strikes" in head["not"], "headline caveats missing")
     check(synthetic == (head.get("synthetic") == ps.SYNTHETIC_FLAG), "headline synthetic flag disagrees")
     arch = head["archive"]
-    check(arch["flashes"] == len(flashes), "headline flash total differs")
+    check(arch["flashes"] == (None if nothing_searched else len(flashes)), "headline flash total differs")
     check(abs(arch["hours_observed"] - hours_observed) < 1e-3 and arch["hours_expected"] == 24.0 * len(days),
           "headline hours differ")
     cov_counts = Counter(d["coverage"] for d in days)
@@ -264,7 +266,8 @@ def verify(archive_dir: Path, out_dir: Path, *, substations_path: Path | None = 
     ranked = sorted(((-c[1], code) for code, c in expected.items() if c[1] > 0))[:3]
     check([t["site"] for t in head["substations"]["top"]] == [code for _, code in ranked], "headline top sites differ")
     check([t["n10"] for t in head["substations"]["top"]] == [-n for n, _ in ranked], "headline top counts differ")
-    check(head["substations"]["with_any_within_10km"] == sum(1 for c in expected.values() if c[1] > 0),
+    check(head["substations"]["with_any_within_10km"] ==
+          (None if nothing_searched else sum(1 for c in expected.values() if c[1] > 0)),
           "headline substation total differs")
     check("optical-flash proximity" in head["substations"]["label"], "headline proximity label missing")
     check(head["episodes"]["count"] == len(episodes), "headline episode count differs")

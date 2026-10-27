@@ -75,7 +75,7 @@ SCHEMAS = {
         _field("days_partial", pa.int64(), "partly searched UTC days"),
         _field("days_never_searched", pa.int64(), "never-searched UTC days (UNKNOWN)"),
         _field("days_shard_lost", pa.int64(), "days whose shard is lost (UNKNOWN)"),
-        _field("count_state", pa.string(), "complete | lower_bound_partial_coverage"),
+        _field("count_state", pa.string(), "complete | lower_bound_partial_coverage | UNKNOWN (no searched hours: counts NULL)"),
     ])),
     "substation_optical_flash_proximity_daily": ("uk-lightning-rollup-substation-optical-flash-proximity-daily.v1", pa.schema([
         _field("site_code", pa.string(), "NESO ETYS site code"), _field("date", pa.date32(), "UTC date"),
@@ -196,14 +196,20 @@ def headline(con, index: dict, substations: dict, *, synthetic: bool) -> dict:
     largest = con.execute(f"""SELECT {_ISO.format('start_utc')}, {_ISO.format('end_utc')}, flash_count, coverage
                              FROM storm_episodes
                              ORDER BY flash_count DESC, start_utc LIMIT 1""").fetchone()
-    count_state = "complete" if hours_observed >= hours_expected else "lower_bound_partial_coverage"
+    if not hours_observed > 0:  # nothing was searched: every count is UNKNOWN, never 0
+        count_state = "UNKNOWN"
+    elif hours_observed >= hours_expected:
+        count_state = "complete"
+    else:
+        count_state = "lower_bound_partial_coverage"
+    unknown = count_state == "UNKNOWN"
     product = {
         "schema": SCHEMA_HEADLINE,
         "what": "UK-box satellite optical lightning flashes (EUMETSAT MTG LI L2-LFL) from the one-year UTC archive.",
         "not": "Optical flashes, not ground strikes, not damage, not electrical faults, not causality.",
         "coverage_rule": "Counts cover searched hours only; never-searched or lost time is UNKNOWN, not 0.",
         "archive": {
-            "flashes": total[0], "count_state": count_state,
+            "flashes": None if unknown else total[0], "count_state": count_state,
             "hours_observed": hours_observed, "hours_expected": hours_expected,
             "days": {"in_range": days_in_range, "full": days_full, "partial": days_partial,
                      "never_searched": days_none, "shard_lost": days_lost},
@@ -218,7 +224,7 @@ def headline(con, index: dict, substations: dict, *, synthetic: bool) -> dict:
         "substations": {
             "metric": "optical_flash_proximity_10km",
             "label": "optical-flash proximity, not strikes or faults",
-            "located": near[1], "with_any_within_10km": near[0], "count_state": count_state,
+            "located": near[1], "with_any_within_10km": None if unknown else near[0], "count_state": count_state,
             "top": [{"site": s, "name": n, "n10": c} for s, n, c in top],
         },
         "episodes": {
