@@ -13,6 +13,11 @@ Collection model (data plane only, nothing here touches GridAtlas):
   the slots it actually examined, and only those slots count as "searched".
   The slot containing ``now`` is normally not yet published, so the tail of
   the query window is unobserved and is recorded as such (unknown, not zero);
+- one unreadable product (ZIP without a BODY NetCDF, corrupt ZIP or NetCDF)
+  does not stop the run: its slot is UNPARSED, i.e. not searched time, so it
+  stays unknown (never zero) and is listed with its reason in the run record.
+  Network/auth/rate-limit errors still stop the run, and so does a UTC date
+  with more than ``MAX_UNPARSED_DAY_FRACTION`` of its slots unparsed;
 - the live 7-day feed is written first; the one-year archive and the status
   file are produced by separate steps from the run record this module leaves
   behind, so an archive failure can never block the feed.
@@ -27,6 +32,7 @@ import os
 import re
 import sys
 import zipfile
+import zlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -49,6 +55,23 @@ PUBLICATION_GRACE_SECONDS = 15 * 60
 RUN_RECORD_SCHEMA = "uk-lightning-run-record.v1"
 # ..._L2PF_OPE_<sensing start YYYYMMDDHHMMSS>_<sensing end YYYYMMDDHHMMSS>_N__O_<slot>_0000
 PRODUCT_SLOT = re.compile(r"_OPE_(\d{14})_(\d{14})_")
+# A UTC date with more unparsed slots than this fraction of its slots in the
+# query window is not recorded at all: the run stops and the date stays unknown.
+MAX_UNPARSED_DAY_FRACTION = 0.20
+# Per-product CONTENT errors raised while decoding bytes already downloaded
+# (ZIP without BODY, corrupt ZIP, corrupt/odd NetCDF: netCDF4 raises OSError or
+# RuntimeError). Downloading happens outside the decode, so network, auth and
+# rate-limit errors are never caught here; nor is a missing netCDF4 (ImportError).
+PRODUCT_CONTENT_ERRORS = (ValueError, zipfile.BadZipFile, zipfile.LargeZipFile, zlib.error, EOFError,
+                          OSError, RuntimeError, KeyError, IndexError, TypeError)
+
+
+class TooManyUnparsed(RuntimeError):
+    """A date has too many unreadable products (or none readable): stop, leave it unknown."""
+
+    def __init__(self, message: str, unparsed=()):
+        super().__init__(message)
+        self.unparsed = list(unparsed)
 
 
 def parse_utc(value: str) -> datetime:
@@ -132,8 +155,9 @@ def decode_body(content: bytes, product_name: str, start: datetime, end: datetim
         return results
 
 
-def decode_product(blob: bytes, product_name: str, start: datetime, end: datetime):
+def decode_product(blob: bytes, product_name: str, start: datetime, end: datetime, *, body_decoder=None):
     """EUMETSAT packages products as ZIP archives with *BODY*.nc."""
+    body_decoder = body_decoder or decode_body
     if not zipfile.is_zipfile(io.BytesIO(blob)):
         raise ValueError(f"{product_name}: expected EUMETSAT product ZIP")
     found = False
@@ -142,14 +166,14 @@ def decode_product(blob: bytes, product_name: str, start: datetime, end: datetim
         for name in archive.namelist():
             if name.upper().endswith(".NC") and "BODY" in Path(name).name.upper():
                 found = True
-                features.extend(decode_body(archive.read(name), product_name, start, end))
+                features.extend(body_decoder(archive.read(name), product_name, start, end))
     if not found:
         raise ValueError(f"{product_name}: ZIP contained no BODY NetCDF")
     return features
 
 
-def download(start: datetime, end: datetime):
-    """Return (features, products_examined, product_names) for a real search."""
+def search_products(start: datetime, end: datetime):
+    """The real EUMETSAT product search (network); products are opened lazily."""
     key = os.environ.get("EUMETSAT_CONSUMER_KEY", "").strip()
     secret = os.environ.get("EUMETSAT_CONSUMER_SECRET", "").strip()
     if not key or not secret:
@@ -163,20 +187,123 @@ def download(start: datetime, end: datetime):
     count = getattr(products, "total_results", None)
     if count == 0:
         raise RuntimeError("No EUMETSAT product files returned. Existing map data left unchanged.")
-    found = []
-    names = []
+    return products
+
+
+def unparsed_entry(product_name: str, error: BaseException) -> dict:
+    slot = product_slot(product_name)
+    return {
+        "product": product_name,
+        "reason": f"{type(error).__name__}: {error}"[:1000],
+        "slot_start_utc": iso_utc(slot[0]) if slot else None,
+        "slot_end_utc": iso_utc(slot[1]) if slot else None,
+    }
+
+
+def download_products(products, start: datetime, end: datetime, *, body_decoder=None):
+    """Download and decode each product: (features, readable count, readable names, unparsed).
+
+    The download (``open``/``read``) is outside the per-product guard, so any
+    network, auth, rate-limit or timeout error propagates and stops the run.
+    Only a content error while decoding bytes already in hand makes that one
+    product UNPARSED; its name is then NOT among the examined names, so its slot
+    is not searched time (unknown, never zero).
+    """
+    found, names, unparsed = [], [], []
     downloaded = 0
     for product in products:
         downloaded += 1
         if downloaded > 1000:
             raise RuntimeError("Too many products in one run; reduce --hours.")
-        print(f"Product {downloaded}: {product}", file=sys.stderr)
-        names.append(str(product))
+        name = str(product)
+        print(f"Product {downloaded}: {name}", file=sys.stderr)
         with product.open() as stream:
-            found.extend(decode_product(stream.read(), str(product), start, end))
+            blob = stream.read()
+        try:
+            features = decode_product(blob, name, start, end, body_decoder=body_decoder)
+        except PRODUCT_CONTENT_ERRORS as error:
+            entry = unparsed_entry(name, error)
+            unparsed.append(entry)
+            print(f"UNPARSED product {name}: {entry['reason']} (slot left unknown)", file=sys.stderr)
+            continue
+        names.append(name)
+        found.extend(features)
     if downloaded == 0:
         raise RuntimeError("Empty product search. Existing map data left unchanged.")
-    return found, downloaded, names
+    return found, len(names), names, unparsed
+
+
+def download(start: datetime, end: datetime):
+    """Return (features, readable products, readable names, unparsed products) for a real search."""
+    return download_products(search_products(start, end), start, end)
+
+
+def unpack_download(result):
+    """Downloaders return (features, count, names) or (features, count, names, unparsed)."""
+    if len(result) == 3:
+        return (*result, [])
+    features, count, names, unparsed = result
+    return features, count, names, list(unparsed or [])
+
+
+def check_unparsed(unparsed, names, beginning: datetime, end: datetime, *,
+                   max_fraction: float = MAX_UNPARSED_DAY_FRACTION) -> dict:
+    """Stop (TooManyUnparsed) when no product was readable or a UTC date has too many unparsed slots.
+
+    An unparsed slot already covered by a readable product (e.g. a short PART
+    product inside a regular slot) is not unknown time and is not counted. The
+    denominator is the number of 10-minute slots of that date inside the query
+    window (144 for a whole-day rebuild). Returns {date: unparsed slot count}.
+    """
+    unparsed = list(unparsed)
+    if not unparsed:
+        return {}
+    if not names:
+        raise TooManyUnparsed(f"all {len(unparsed)} product(s) unreadable; nothing was searched "
+                              f"(first: {unparsed[0]['reason']})", unparsed)
+    readable = merge_ranges([slot for slot in (product_slot(n) for n in names) if slot])
+    per_day: dict[str, set] = {}
+    day = beginning.date()
+    while datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc) < end:
+        per_day[day.isoformat()] = set()
+        day += timedelta(days=1)
+    for entry in unparsed:
+        slot = product_slot(entry["product"])
+        if slot is None:  # unknown slot: conservatively counts against every date of the window
+            for marks in per_day.values():
+                marks.add(entry["product"])
+            continue
+        s, e = max(slot[0], beginning), min(slot[1], end)
+        if e <= s or any(rs <= s and e <= re_ for rs, re_ in readable):
+            continue
+        per_day.setdefault(s.date().isoformat(), set()).add(s)
+    counts = {}
+    for day_text, marks in per_day.items():
+        if not marks:
+            continue
+        day_start = datetime.combine(datetime.fromisoformat(day_text).date(), datetime.min.time(), tzinfo=timezone.utc)
+        span = (min(end, day_start + timedelta(days=1)) - max(beginning, day_start)).total_seconds()
+        slots = max(1, math.ceil(span / SLOT_SECONDS))
+        counts[day_text] = len(marks)
+        if len(marks) > max_fraction * slots:
+            raise TooManyUnparsed(
+                f"{day_text}: {len(marks)} of {slots} 10-minute slots unparsed (more than "
+                f"{max_fraction:.0%}); date not recorded, left unknown (first: {unparsed[0]['reason']})", unparsed)
+    return counts
+
+
+def unparsed_slot_starts(unparsed, names, beginning: datetime, end: datetime) -> list[str]:
+    """Slot starts of unparsed products NOT covered by a readable product (unknown time)."""
+    readable = merge_ranges([slot for slot in (product_slot(n) for n in names) if slot])
+    starts = set()
+    for entry in unparsed:
+        slot = product_slot(entry["product"])
+        if slot is None:
+            continue
+        s, e = max(slot[0], beginning), min(slot[1], end)
+        if e > s and not any(rs <= s and e <= re_ for rs, re_ in readable):
+            starts.add(s)
+    return [iso_utc(x) for x in sorted(starts)]
 
 
 def read_previous(path: Path):
@@ -363,6 +490,7 @@ def build_run_record(
     incoming,
     existing,
     feed,
+    unparsed=(),
 ) -> dict:
     """Everything the archive and status steps need; never committed itself."""
     ranges, slot_starts, parsed = scanned_ranges(product_names, beginning, now)
@@ -383,6 +511,10 @@ def build_run_record(
         "slots_examined": len(slot_starts),
         "slots_examined_utc": [iso_utc(s) for s in slot_starts],
         "slots_parsed": parsed,
+        "products_unparsed": len(unparsed),
+        "unparsed_products": list(unparsed),
+        "unparsed_slots_utc": unparsed_slot_starts(unparsed, product_names, beginning, now),
+        "max_unparsed_day_fraction": MAX_UNPARSED_DAY_FRACTION,
         "scanned_ranges": _iso_pairs(ranges),
         "scanned_end_utc": iso_utc(max(e for _, e in ranges)) if ranges else None,
         "unscanned_ranges": _iso_pairs(gaps),
@@ -391,7 +523,8 @@ def build_run_record(
         "feed_features": len(feed["features"]),
         "feed_total_before_display_cap": feed["metadata"]["total_before_display_cap"],
         "feed_latest_detection_utc": feed["metadata"]["latest_detection_utc"],
-        "note": "Only examined 10-minute slots count as searched; the unobserved tail and gaps are unknown, not zero.",
+        "note": ("Only examined 10-minute slots count as searched; the unobserved tail, gaps and unparsed "
+                 "(unreadable) product slots are unknown, not zero."),
         # Uncapped incoming detections plus the previously published feed (the
         # seed on the first archive run; idempotent afterwards).
         "features": [*existing, *incoming],
@@ -417,11 +550,23 @@ def rebuild_day_record(day: str, run_record: Path, *, now: datetime | None = Non
     end = min(start + timedelta(days=1), now)
     if end <= start:
         raise ValueError(f"{day} has not started yet")
-    incoming, product_count, names = (downloader or download)(start, end)
+    incoming, product_count, names, unparsed = unpack_download((downloader or download)(start, end))
+    try:
+        check_unparsed(unparsed, names, start, end)
+    except TooManyUnparsed as error:
+        write_json(run_record, {
+            "schema": RUN_RECORD_SCHEMA, "run_utc": iso_utc(now), "outcome": "failure",
+            "error": f"{type(error).__name__}: {error}", "rebuild_day_utc": day,
+            "query_start_utc": iso_utc(start), "query_end_utc": iso_utc(end),
+            "products_examined": product_count, "products_unparsed": len(unparsed),
+            "unparsed_products": unparsed, "scanned_ranges": [], "features": [],
+        })
+        raise
     record = build_run_record(
         now=end, beginning=start, lookback_source="rebuild", lookback_capped=False, last_success_before=None,
         product_names=names, products_examined=product_count, incoming=incoming, existing=[],
         feed={"features": [], "metadata": {"total_before_display_cap": None, "latest_detection_utc": None}},
+        unparsed=unparsed,
     )
     record["run_utc"] = iso_utc(now)
     record["rebuild_day_utc"] = day
@@ -429,11 +574,12 @@ def rebuild_day_record(day: str, run_record: Path, *, now: datetime | None = Non
                       "Only examined 10-minute slots count as searched.")
     write_json(run_record, record)
     print(f"Rebuild of {day}: {len(incoming)} flashes from {product_count} products "
-          f"({record['slots_examined']} slots examined, {len(record['unscanned_ranges'])} gaps).", file=sys.stderr)
+          f"({record['slots_examined']} slots examined, {len(record['unscanned_ranges'])} gaps, "
+          f"{record['products_unparsed']} unparsed product(s)).", file=sys.stderr)
     return 0
 
 
-def main(argv=None):
+def main(argv=None, *, now: datetime | None = None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     window = parser.add_mutually_exclusive_group()
     window.add_argument("--hours", type=float, default=None, help="Explicit lookback from EUMETSAT; 1-48")
@@ -459,7 +605,7 @@ def main(argv=None):
         parser.error(f"hours must be 1..{LOOKBACK_MAX_HOURS}")
     if not 1 <= args.retention_days <= 31:
         parser.error("retention-days must be 1..31")
-    now = datetime.now(timezone.utc)
+    now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     last_success, source = read_last_success(args.status, args.history_dir)
     capped = False
     if args.hours is not None:
@@ -472,14 +618,16 @@ def main(argv=None):
     print(f"Query window {iso_utc(beginning)} -> {iso_utc(now)} ({window.total_seconds() / 3600:.2f} h, "
           f"source={source}, capped={capped}, last successful scan end={iso_utc(last_success) if last_success else 'none'})",
           file=sys.stderr)
+    unparsed = []
     try:
-        incoming, product_count, names = download(beginning, now)
+        incoming, product_count, names, unparsed = unpack_download(download(beginning, now))
+        check_unparsed(unparsed, names, beginning, now)
         existing = read_previous(args.out)
         result = assemble(existing, incoming, now, retention_days=args.retention_days)
         record = build_run_record(
             now=now, beginning=beginning, lookback_source=source, lookback_capped=capped,
             last_success_before=last_success, product_names=names, products_examined=product_count,
-            incoming=incoming, existing=existing, feed=result,
+            incoming=incoming, existing=existing, feed=result, unparsed=unparsed,
         )
     except Exception as error:  # noqa: BLE001 - the record must name any failure
         if args.run_record:
@@ -489,13 +637,15 @@ def main(argv=None):
                 "query_end_utc": iso_utc(now), "lookback_hours": round(window.total_seconds() / 3600, 4),
                 "lookback_source": source, "lookback_capped": capped,
                 "last_successful_scan_end_utc_before_run": iso_utc(last_success) if last_success else None,
-                "products_examined": 0, "scanned_ranges": [], "features": [],
+                "products_examined": 0, "products_unparsed": len(unparsed), "unparsed_products": unparsed,
+                "scanned_ranges": [], "features": [],
             })
         raise
     # Refresh provenance only when a successful query returned product files.
     meta = result["metadata"]
     meta["products_examined"] = product_count
     meta["slots_examined"] = record["slots_examined"]
+    meta["products_unparsed"] = record["products_unparsed"]
     meta["query_start_utc"] = iso_utc(beginning)
     meta["query_end_utc"] = iso_utc(now)
     meta["scan_end_utc"] = record["scanned_end_utc"]
@@ -509,7 +659,8 @@ def main(argv=None):
         write_json(args.run_record, record)
     print(f"Published {len(result['features'])} genuine optical flashes from {product_count} EUMETSAT products "
           f"({record['slots_examined']} slots examined, {len(record['unscanned_ranges'])} gaps, "
-          f"tail unobserved {record['tail_unobserved_seconds']} s).")
+          f"tail unobserved {record['tail_unobserved_seconds']} s, "
+          f"{record['products_unparsed']} unparsed product(s)).")
     return 0
 
 
