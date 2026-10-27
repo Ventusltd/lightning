@@ -1,0 +1,160 @@
+name: UK lightning archive backfill
+# Manual only. Fills UTC dates the archive index marks NEVER SEARCHED
+# (coverage none / count null, not shard_lost) from a fresh, independent
+# whole-day EUMETSAT search per date, newest first. A date is only ever
+# filled with the examined 10-minute slots of that search: gaps stay unknown,
+# never zero. See docs/HISTORY_ONE_YEAR.md, "Backfill".
+on:
+  workflow_dispatch:
+    inputs:
+      end_date:
+        description: "Newest UTC date to consider (YYYY-MM-DD). Empty = yesterday UTC."
+        default: ""
+        required: false
+      days:
+        description: "UTC dates to consider back from end_date (1-31). Only never-searched dates are searched."
+        default: "7"
+        required: false
+      dry_run:
+        description: "Only list the dates that would be searched: no EUMETSAT calls, no commit."
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+# Same group as update-lightning.yml: the hourly job and a backfill never run
+# at the same time (a queued hourly run waits; its self-healing lookback
+# catches up the hours a backfill held it back).
+concurrency:
+  group: uk-lightning-update
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      # Stop starting new dates after this many minutes so the run always ends
+      # (and commits what it verified) well inside timeout-minutes.
+      BACKFILL_BUDGET_MINUTES: "200"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - name: Test pure-Python data contracts
+        run: python -m unittest discover -s tests -v
+
+      # 1. Plan: never-searched dates of the committed index, newest first.
+      #    Refuses days outside 1-31, an end_date that is today or later, or a
+      #    missing index (the hourly job creates the archive and its seed first).
+      - name: Plan never-searched UTC dates
+        id: plan
+        env:
+          END_DATE: ${{ inputs.end_date }}
+          DAYS: ${{ inputs.days }}
+        run: |
+          python history.py backfill-plan --archive-dir data/history \
+            --end-date "$END_DATE" --days "$DAYS" > "$RUNNER_TEMP/backfill-plan.txt"
+          echo "Never-searched UTC dates to search (newest first):"
+          cat "$RUNNER_TEMP/backfill-plan.txt"
+          echo "count=$(grep -c . "$RUNNER_TEMP/backfill-plan.txt" || true)" >> "$GITHUB_OUTPUT"
+
+      # 2. Per date: independent whole-day search (run record only, never the
+      #    feed), then a gated ingest + verify on a staging copy that replaces
+      #    data/history only when both succeed. The first EUMETSAT error (rate
+      #    limit, outage, no products) or archive refusal stops the loop; every
+      #    later date stays never searched (unknown, not zero).
+      - name: Search and ingest each date
+        id: backfill
+        if: ${{ !inputs.dry_run && steps.plan.outputs.count != '0' }}
+        env:
+          EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
+          EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::A backfill writes the archive and must run on main (got $GITHUB_REF); use dry_run elsewhere."
+            exit 1
+          fi
+          started=$(date +%s)
+          budget=$(( ${BACKFILL_BUDGET_MINUTES:-200} * 60 ))
+          stopped=completed
+          error=""
+          : > "$RUNNER_TEMP/backfill-filled.txt"
+          # Children get /dev/null as stdin: the loop itself reads the plan file.
+          while read -r D; do
+            [ -n "$D" ] || continue
+            if [ $(( $(date +%s) - started )) -ge "$budget" ]; then
+              stopped=time_budget
+              break
+            fi
+            rec="$RUNNER_TEMP/rb-$D.json"
+            if ! python collect.py --rebuild-day "$D" --run-record "$rec" < /dev/null 2> "$RUNNER_TEMP/rb-$D.log"; then
+              cat "$RUNNER_TEMP/rb-$D.log" >&2
+              stopped=eumetsat_error
+              error="$D: $(tail -n 1 "$RUNNER_TEMP/rb-$D.log")"
+              break
+            fi
+            cat "$RUNNER_TEMP/rb-$D.log" >&2
+            if ! python history.py backfill --archive-dir data/history --day "$D" --rebuild-record "$rec" \
+                 --result-out "$RUNNER_TEMP/bf-$D.json" < /dev/null 2> "$RUNNER_TEMP/bf-$D.log"; then
+              cat "$RUNNER_TEMP/bf-$D.log" >&2
+              stopped=archive_refused
+              error="$D: $(tail -n 1 "$RUNNER_TEMP/bf-$D.log")"
+              break
+            fi
+            cat "$RUNNER_TEMP/bf-$D.log" >&2
+            echo "$D" >> "$RUNNER_TEMP/backfill-filled.txt"
+          done < "$RUNNER_TEMP/backfill-plan.txt"
+          python status.py backfill --status data/status.json \
+            --plan "$RUNNER_TEMP/backfill-plan.txt" --filled "$RUNNER_TEMP/backfill-filled.txt" \
+            --stopped "$stopped" --error "$error" --archive-dir data/history
+          echo "stopped=$stopped" >> "$GITHUB_OUTPUT"
+          echo "filled=$(grep -c . "$RUNNER_TEMP/backfill-filled.txt" || true)" >> "$GITHUB_OUTPUT"
+          {
+            echo "error<<BACKFILL_EOF"
+            echo "$error"
+            echo "BACKFILL_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # 3. One commit per run: verify the whole archive first (nothing
+      #    unverified is committed), then commit data/history + data/status.json.
+      - name: Verify and commit backfilled dates (one commit)
+        if: ${{ steps.backfill.outcome == 'success' }}
+        run: |
+          python history.py verify --archive-dir data/history
+          git add -A -- data/status.json
+          if [ -d data/history ]; then
+            git add -A -- data/history
+          fi
+          if git diff --cached --quiet; then
+            echo "No backfilled dates or status change to commit"
+            exit 0
+          fi
+          filled=$(grep -c . "$RUNNER_TEMP/backfill-filled.txt" || true)
+          range=$(paste -sd, "$RUNNER_TEMP/backfill-filled.txt")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: backfill ${filled} never-searched UTC day(s) of the one-year archive" \
+                     -m "Dates: ${range:-none}. Stopped: ${{ steps.backfill.outputs.stopped }}."
+          git push || (git pull --rebase origin main && git push)
+
+      # 4. A stop on an EUMETSAT error or an archive refusal turns the run red
+      #    AFTER the verified dates were committed; a time-budget stop warns.
+      - name: Surface backfill stop
+        if: ${{ always() && steps.backfill.outcome != 'skipped' }}
+        env:
+          STOPPED: ${{ steps.backfill.outputs.stopped }}
+          ERROR: ${{ steps.backfill.outputs.error }}
+          OUTCOME: ${{ steps.backfill.outcome }}
+        run: |
+          case "$STOPPED" in
+            completed) echo "Backfill completed" ;;
+            time_budget) echo "::warning::Backfill stopped at the time budget; remaining dates stay never searched. Run again." ;;
+            *)
+              echo "::error::Backfill stopped (${STOPPED:-step $OUTCOME}): $ERROR. Remaining dates stay never searched (unknown, not zero)."
+              exit 1 ;;
+          esac

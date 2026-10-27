@@ -11,8 +11,9 @@ history-window.mjs, tests and this file were the starting point.
   including intracloud lightning. They are **not confirmed cloud-to-ground strikes** and never
   evidence that a particular place was struck.
 - The archive is **prospective**. It starts the first time the hourly job runs with this code.
-  There is **no back-data**: EUMETSAT history before that has not been downloaded, and nothing
-  is interpolated, estimated or back-dated.
+  Earlier dates have **no back-data** unless an owner runs the manual **backfill** (below), which
+  fills a never-searched date only from a fresh whole-day EUMETSAT search with that search's
+  examined slots as its coverage. Nothing is interpolated, estimated or back-dated.
 - The only earlier content is the **seed**: the flashes already in the 7-day live feed when the
   archive is first written. On 26 Oct 2026 that is 408 flashes from 21 Oct 12:32 to 25 Oct 11:15 UTC
   (31 / 67 / 189 / 118 / 3 per UTC day). The collector that produced them ran every three hours
@@ -59,7 +60,8 @@ while any date is `shard_lost` (the archive is never reported entirely healthy t
 (a failed or skipped archive step carries the previous state, `source: previous_status`);
 `last_attempt_utc`, `last_attempt_outcome`, `last_error`,
 `consecutive_failures`, `last_successful_scan_start/end_utc`, the last run's lookback, slots,
-searched and unsearched ranges, feed counts and the archive outcome.
+searched and unsearched ranges, feed counts and the archive outcome, plus the last manual
+`backfill` block (see *Backfill* below; written only by the backfill workflow).
 
 ## Archive layout
 
@@ -167,6 +169,67 @@ Rules:
    `quarantined_merged`, result counts/hashes, and for a rebuild the covered seconds), and
    `verify` runs. Commit `data/history` by hand after reviewing the audit.
 
+### Backfill of never-searched dates (manual workflow)
+
+`.github/workflows/backfill-lightning.yml` is **`workflow_dispatch` only** (no schedule). Inputs:
+`end_date` (newest UTC date, empty = yesterday UTC; must be before today), `days` (dates to
+consider back from `end_date`, default 7, **1–31**), `dry_run` (only print the plan: no EUMETSAT
+call, no commit). It shares the concurrency group **`uk-lightning-update`** with the hourly job
+(`cancel-in-progress: false`), so the two never run at the same time; an hourly run queued
+behind a backfill catches up through its self-healing lookback. Writing runs must be on `main`.
+
+1. **Plan** — `history.py backfill-plan` lists the dates in `[end_date − days + 1, end_date]`,
+   newest first, whose row is `coverage none / count null` and **not `shard_lost`** (those need
+   `recover`), stopping at the retention cutoff. It refuses when no `index.json` exists: the
+   hourly job creates the archive and merges the one-off seed windows first.
+2. **Search** each date with `python collect.py --rebuild-day D --run-record $RUNNER_TEMP/rb-D.json`:
+   an independent search of the whole UTC date that writes only the run record (never the feed
+   or status).
+3. **Ingest** with `history.py backfill --day D --rebuild-record R` (distinct from `recover`,
+   which is for `shard_lost` dates and must match a recorded count). Gates, all before any write:
+   the index exists; the row is never searched and not `shard_lost`; the record is a successful
+   `uk-lightning-run-record.v1` with `products_examined ≥ 1`, `slots_parsed: true`,
+   `rebuild_day_utc == D`, `query_start/end` = the whole date and `run_utc` after the date ended;
+   every scanned range lies inside D; every flash is valid, on D and **inside an examined slot**;
+   no unlisted shard files exist for D. The ingest then runs through the ordinary
+   `archive_observations` path (same dedupe, sorting, 8 MiB hourly split and **25 000 000-byte
+   `max_shard_bytes` hard cap**) and `verify` on a **staging copy** that replaces `data/history`
+   only when both succeed and the new row's `scanned_seconds` equals the record's examined
+   seconds and its `count` equals the record's flashes. Any refusal or failure (including
+   `ShardTooLarge`) changes nothing. The row becomes `partial` or `full` with the **real
+   examined coverage**: slots EUMETSAT did not return stay unsearched, and `count 0` appears only
+   when the searched time had no flash. The index keeps the hourly job's `last_run_lookback_hours`;
+   `last_successful_scan_end_utc` does not move back.
+4. **Stop cleanly.** The first `--rebuild-day` failure (EUMETSAT error, HTTP 429 rate limit,
+   outage, or "No EUMETSAT product files returned") stops the loop (`eumetsat_error`), as does
+   an ingest refusal (`archive_refused`) or the soft time budget (`BACKFILL_BUDGET_MINUTES`, 200,
+   inside the 300-minute job timeout; `time_budget`). Remaining dates stay never searched
+   (unknown, not zero); run the workflow again later.
+5. **Status, verify, one commit.** `status.py backfill` writes a `backfill` block into
+   `data/status.json` (`last_run_utc`, `outcome` completed / time_budget / stopped,
+   `stopped_reason`, `error`, `planned_days`, `filled_days`, `remaining_unknown_days`) and
+   refreshes `archive.archived_observations`, `archive.index_generated_utc` and `integrity` from
+   the new index. It **never touches the hourly heartbeat** (`written_utc`, `last_attempt_*`,
+   `consecutive_failures`, `last_successful_scan_*`, `freshness`), so a backfill cannot move the
+   lookback anchor; the hourly `status.py write` carries the `backfill` block forward. Then
+   `history.py verify` runs and `data/history` + `data/status.json` are committed in **one
+   commit** per run. An `eumetsat_error` or `archive_refused` stop turns the run red after that
+   commit; a `time_budget` stop only warns.
+
+**Does EUMETSAT's Data Store keep past MTG LI L2-LFL products? Unverified.** Checked 27 Oct 2026
+against EUMETSAT's own pages: the LI Level-2 operational dissemination validation report
+(30 Oct 2024) plans operational dissemination of LI L2 products, flashes included, from the
+beginning of November 2024 (AERIS, a secondary source, dates the operational declaration to
+31 Oct 2024). EUMETSAT
+describes the Data Store as "a growing catalogue" that gradually replaces the Data Centre's
+data service, with the Data Centre focused on long-term preservation. None of the pages
+reachable here states the temporal extent or a retention/rolling window for
+`EO:EUM:DAT:0691`, and its catalogue page could not be fetched from this environment. So
+whether past dates (up to the one-year cutoff) are still searchable is **unverified**. The
+workflow does not depend on it: a date with no returned product fails `--rebuild-day` and
+stops the run with the date left unknown. A `dry_run`, then a one-day run (`days: 1`) on an old
+`end_date`, is the cheapest empirical check.
+
 ### Day shard (`uk-lightning-history-day.v1`)
 
 Unchanged feature shape from `collect.build_feature` (526 bytes per flash: product-name id,
@@ -217,7 +280,7 @@ returns `{index, feed, loadWindow, cacheStats, periods, states}`.
 ## Verification
 
 ```bash
-python -m unittest discover -s tests -v      # collector, archive, status, workflow shell, shard_lost
+python -m unittest discover -s tests -v      # collector, archive, status, workflow shell, shard_lost, backfill (fake downloader)
 node --test tests/test_history_window.mjs     # client rules
 python history.py verify --archive-dir data/history
 ```
