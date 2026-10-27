@@ -1,0 +1,160 @@
+{
+ "schema": "uk-lightning-seed-scan-windows.v1",
+ "note": "Reconstructed from the query_start_utc/query_end_utc/products_examined metadata of every committed data/uk_lightning.geojson version (git history, commits d4bbd667..21c3e567). Used once by history.py when no index exists so the seeded days are not shown as never searched. These are the windows that were SEARCHED; detections outside them are unknown, not zero.",
+ "source_evidence": "scratchpad/lightning/evidence/lightning-archive-auditor/scan_windows_analysis.txt",
+ "scan_windows": [
+  {
+   "start_utc": "2026-10-20T22:41:54.847Z",
+   "end_utc": "2026-10-22T22:40:09.000Z",
+   "products_examined": 288,
+   "query_end_utc": "2026-10-22T22:41:54.847Z",
+   "feed_commit": "d4bbd667",
+   "slots_overlapped": 289,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-23T01:52:01.144Z",
+   "end_utc": "2026-10-23T04:50:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-23T04:52:01.144Z",
+   "feed_commit": "63d64c14",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-23T08:41:16.485Z",
+   "end_utc": "2026-10-23T11:40:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-23T11:41:16.485Z",
+   "feed_commit": "cbe62811",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-23T14:09:16.941Z",
+   "end_utc": "2026-10-23T17:00:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-23T17:09:16.941Z",
+   "feed_commit": "f942cd5f",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-23T18:26:01.942Z",
+   "end_utc": "2026-10-23T21:26:01.942Z",
+   "products_examined": 19,
+   "query_end_utc": "2026-10-23T21:26:01.942Z",
+   "feed_commit": "27edf014",
+   "slots_overlapped": 19,
+   "rule": "all overlapped slots examined; range ends at query end"
+  },
+  {
+   "start_utc": "2026-10-24T01:38:51.360Z",
+   "end_utc": "2026-10-24T04:30:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-24T04:38:51.360Z",
+   "feed_commit": "1fa45434",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-24T08:03:25.161Z",
+   "end_utc": "2026-10-24T11:00:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-24T11:03:25.161Z",
+   "feed_commit": "d2cd49c2",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-24T12:58:51.375Z",
+   "end_utc": "2026-10-24T15:50:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-24T15:58:51.375Z",
+   "feed_commit": "d15fce7b",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-24T17:51:39.138Z",
+   "end_utc": "2026-10-24T20:50:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-24T20:51:39.138Z",
+   "feed_commit": "40646004",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-24T20:16:47.567Z",
+   "end_utc": "2026-10-24T23:10:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-24T23:16:47.567Z",
+   "feed_commit": "e60a4689",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-25T01:43:36.922Z",
+   "end_utc": "2026-10-25T04:43:36.922Z",
+   "products_examined": 19,
+   "query_end_utc": "2026-10-25T04:43:36.922Z",
+   "feed_commit": "02f389b9",
+   "slots_overlapped": 19,
+   "rule": "all overlapped slots examined; range ends at query end"
+  },
+  {
+   "start_utc": "2026-10-25T08:32:36.419Z",
+   "end_utc": "2026-10-25T11:30:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-25T11:32:36.419Z",
+   "feed_commit": "58c6ada9",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-25T13:22:45.024Z",
+   "end_utc": "2026-10-25T16:20:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-25T16:22:45.024Z",
+   "feed_commit": "b468a921",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-25T17:52:27.709Z",
+   "end_utc": "2026-10-25T20:50:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-25T20:52:27.709Z",
+   "feed_commit": "87db8167",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-25T20:17:40.708Z",
+   "end_utc": "2026-10-25T23:10:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-25T23:17:40.708Z",
+   "feed_commit": "9535f859",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-26T01:49:36.206Z",
+   "end_utc": "2026-10-26T04:40:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-26T04:49:36.206Z",
+   "feed_commit": "32b56a0a",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  },
+  {
+   "start_utc": "2026-10-26T10:05:58.649Z",
+   "end_utc": "2026-10-26T13:00:09.000Z",
+   "products_examined": 18,
+   "query_end_utc": "2026-10-26T13:05:58.649Z",
+   "feed_commit": "21c3e567",
+   "slots_overlapped": 19,
+   "rule": "one slot short: the slot containing query end was not yet published; range ends at its start"
+  }
+ ]
+}
