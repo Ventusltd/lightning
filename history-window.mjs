@@ -198,9 +198,13 @@ export function normaliseIndex(raw, { lookbackMaxHours = DEFAULTS.lookbackMaxHou
   const coverageStartMs = Date.parse(raw.coverage_start_utc || '') || (scanWindows.length ? Math.min(...scanWindows.map((w) => w.start)) : null);
   const intervalHours = Number(raw.collection_interval_hours) || 3;
   const nextDueMs = Date.parse(raw.next_update_due_utc || '') || generatedMs + (intervalHours + 1) * HOUR;
+  // shard_lost: a listed shard vanished; the date is unknown (never zero) until a verified recovery.
+  const lostDays = [...new Set([...days.filter((r) => r.shard_lost).map((r) => r.date),
+    ...((raw.integrity && Array.isArray(raw.integrity.lost_days)) ? raw.integrity.lost_days.map((e) => e && e.date).filter((d) => DATE_RE.test(d || '')) : [])])].sort();
+  const integrityState = lostDays.length || raw.integrity?.state === 'shard_lost' ? 'shard_lost' : 'ok';
   return Object.freeze({
     ...raw, schemaVersion, days, dayMap: new Map(days.map((r) => [r.date, r])), scanWindows,
-    generatedMs, nextDueMs, cutoffMs, todayMs, lastScanEndMs, coverageStartMs,
+    generatedMs, nextDueMs, cutoffMs, todayMs, lastScanEndMs, coverageStartMs, lostDays, integrityState,
     archiveFirstEnabledMs: Date.parse(raw.archive_first_enabled_utc || '') || null, lookbackMaxHours: lookbackMax
   });
 }
@@ -236,6 +240,8 @@ export function windowCoverage(index, w) {
   }
   const days = [];
   const unknownDays = [];
+  const lostDays = [];
+  const lost = new Set(index.lostDays || []);
   let searched = 0;
   for (let t = dayStart(ymd(ws)); t < we; t += DAY) {
     const date = ymd(t);
@@ -245,10 +251,13 @@ export function windowCoverage(index, w) {
     for (const sw of index.scanWindows) fromWindows += overlap(Math.max(ws, t), Math.min(we, t + DAY), sw.start, sw.end);
     const row = index.dayMap.get(date);
     const rowEstimate = row && row.coverage !== 'none' ? row.scanned_seconds * 1000 * (o / DAY) : 0;
-    const got = Math.min(o, Math.max(fromWindows, rowEstimate));
+    // A shard_lost date's scan windows are NOT searched time we can vouch for: its count is unknown.
+    const isLost = lost.has(date) || !!(row && row.shard_lost);
+    const got = isLost ? 0 : Math.min(o, Math.max(fromWindows, rowEstimate));
     searched += got;
-    const coverage = row ? row.coverage : 'none';
+    const coverage = isLost ? 'none' : row ? row.coverage : 'none';
     if (coverage === 'none') unknownDays.push(date);
+    if (isLost) lostDays.push(date);
     days.push({ date, overlapSeconds: o / 1000, searchedSeconds: got / 1000, coverage, count: row ? row.count : null, known: !!row });
   }
   const notYetIngestedSeconds = index.lastScanEndMs === null ? windowSeconds : Math.max(0, we - Math.max(ws, index.lastScanEndMs)) / 1000;
@@ -258,7 +267,7 @@ export function windowCoverage(index, w) {
   return {
     windowSeconds, searchedSeconds, searchedFraction: windowSeconds > 0 ? Math.min(1, searchedSeconds / windowSeconds) : 0,
     runs, scanStart: scanStart === null ? null : new Date(scanStart).toISOString(), scanEnd: scanEnd === null ? null : new Date(scanEnd).toISOString(),
-    notYetIngestedSeconds, beforeArchiveSeconds, unknownDays, days
+    notYetIngestedSeconds, beforeArchiveSeconds, unknownDays, lostDays, days
   };
 }
 
@@ -281,7 +290,9 @@ export function classifyState(result, { nowMs = Date.now(), staleAfterMs = DEFAU
       state = STATES.PARTIAL;
       if (c.notYetIngestedSeconds > 0) reasons.push('tail not yet ingested');
       if (c.beforeArchiveSeconds > 0) reasons.push('head before archive start');
-      if (c.unknownDays.length) reasons.push(c.unknownDays.length + ' dates without a scan window');
+      const lostN = (c.lostDays || []).length;
+      if (lostN) reasons.push(lostN + (lostN === 1 ? ' date lost its archive shard' : ' dates lost their archive shard') + ' (integrity alert; unknown, not zero)');
+      if (c.unknownDays.length - lostN > 0) reasons.push((c.unknownDays.length - lostN) + ' dates without a scan window');
       if (!reasons.length) reasons.push('gaps inside the window');
     } else if (result.mode === 'detail' || result.mode === 'feed') {
       state = result.totalMatchingObservations > 0 ? STATES.READY_DETAIL : STATES.EMPTY_COVERED;
@@ -356,7 +367,9 @@ export function captionLines(result, { nowMs = Date.now() } = {}) {
     const warnings = [];
     if (c.notYetIngestedSeconds > 0) warnings.push('Not yet ingested: last ' + AGO(c.notYetIngestedSeconds * 1000) + ' of window (unknown, not zero)');
     if (c.beforeArchiveSeconds > 0 && result.index) warnings.push('Unknown: ' + w.start.slice(0, 10) + ' to ' + ymd(Math.min(Date.parse(w.end), result.index.coverageStartMs ?? result.index.cutoffMs) - 1) + ' precede archive start ' + (result.index.coverage_start_utc || result.index.cutoff_date_utc).slice(0, 10) + ' (not zero)');
-    if (c.unknownDays.length) warnings.push('Unknown: ' + c.unknownDays.length + ' of ' + c.days.length + ' UTC dates have no collection run');
+    const lostDays = c.lostDays || [];
+    if (lostDays.length) warnings.push('Integrity: ' + lostDays.length + ' UTC date' + (lostDays.length === 1 ? ' lost its' : 's lost their') + ' archive shard (' + lostDays.join(', ') + '); count unknown, not zero');
+    if (c.unknownDays.length - lostDays.length > 0) warnings.push('Unknown: ' + (c.unknownDays.length - lostDays.length) + ' of ' + c.days.length + ' UTC dates have no collection run');
     if (result.failures && result.failures.length) warnings.push(result.failures.length + ' of ' + result.requestedDays + ' day files failed (' + result.failures.map((f) => f.date).join(', ') + '); points incomplete, counts from index');
     lines.warning = warnings.join(' · ');
   }

@@ -49,11 +49,15 @@ history-window.mjs, tests and this file were the starting point.
 
 The workflow then commits the **feed on its own**, runs `history.py ingest` as a separate step
 (`continue-on-error`), writes `data/status.json` in an **always-run** step (`status.py`), commits
-**archive + status separately**, and finally fails the job if collection or archive failed so
-the Actions UI shows red. **An archive failure never blocks the feed.**
+**archive + status separately**, and finally fails the job if collection or archive failed, or
+while any `shard_lost` integrity alert is raised (`status.py alert`), so the Actions UI shows red. **An archive failure never blocks the feed.**
 
-`data/status.json` (`uk-lightning-status.v1`): `health` (ok / warn > 6 h / stale > 12 h /
-stopped > 24 h / never), `last_attempt_utc`, `last_attempt_outcome`, `last_error`,
+`data/status.json` (`uk-lightning-status.v1`): `freshness` (ok / warn > 6 h / stale > 12 h /
+stopped > 24 h / never); `health` = `freshness`, except that it is `degraded` instead of ok/warn
+while any date is `shard_lost` (the archive is never reported entirely healthy then);
+`integrity` `{state: ok|shard_lost|unknown, alert, lost_days, quarantined_observations, source}`
+(a failed or skipped archive step carries the previous state, `source: previous_status`);
+`last_attempt_utc`, `last_attempt_outcome`, `last_error`,
 `consecutive_failures`, `last_successful_scan_start/end_utc`, the last run's lookback, slots,
 searched and unsearched ranges, feed counts and the archive outcome.
 
@@ -63,6 +67,7 @@ searched and unsearched ranges, feed counts and the archive outcome.
 data/history/index.json                 uk-lightning-history-index.v2
 data/history/days/YYYY/MM/DD.json       uk-lightning-history-day.v1 (one UTC day)
 data/history/days/YYYY/MM/DD/HH.json    hourly parts of a day above the 8 MiB target
+data/history/quarantine/YYYY-MM-DD.json flashes seen for a shard_lost date (NOT counted)
 data/status.json                        collector heartbeat (see above)
 data/seed_scan_windows.json             one-off seed of reconstructed search windows
 ```
@@ -116,6 +121,51 @@ Rules:
 - `sealed` = every slot of the date was examined (`full`) **or** `generated_utc ≥ date + 1 d +
   48 h`, i.e. no scheduled run can touch the shard any more: safe for ordinary HTTP caching
   (`cache: 'default'`). Unsealed shards and the index use `cache: 'no-cache'` (revalidate).
+- `shard_lost: true` (optional key) marks a date whose listed shard or part vanished from disk:
+  the row becomes `coverage none`, `scanned_seconds 0`, `count null` (unknown, never zero) and
+  stays so on later runs until `history.py recover` (below) or the date leaves retention.
+  Remaining files are left on disk, unlisted. See *Lost shards* below.
+- `integrity` (top level): `{state: "ok" | "shard_lost", alert, lost_days[], recoveries[]}`.
+  Each `lost_days[]` entry keeps `date`, `reason`, `detected_utc`, `missing_paths`,
+  `quarantined_observations`, `quarantine_path` and `last_recorded` (the last index entry for
+  the date: `path`/`parts`, `count`, `bytes`, `sha256`, `index_generated_utc`), which is what a
+  recovery must match. `alert` is a plain-language `INTEGRITY ALERT: …` string, `null` when ok.
+  `verify` rejects an index whose `shard_lost` rows and `integrity.lost_days` disagree, so the
+  flag cannot be cleared by hand-editing one of them.
+
+### Lost shards: alert, quarantine and recovery
+
+1. **Unknown, never zero.** The row is `coverage none / count null`; clients
+   (`windowCoverage`) do not count that date's scan-window seconds as searched and name it in
+   `lostDays` and the warning caption (`Integrity: … count unknown, not zero`).
+2. **Recorded and alerted.** `index.integrity` and `status.json` `integrity` carry the alert;
+   `health` becomes `degraded`; `history.py ingest/verify` print it to stderr; the workflow's
+   last step fails the run (after the commits) while it is raised.
+3. **Healthy days continue.** Other dates are ingested, verified and committed as usual. Flashes
+   arriving later for the lost date are **not** counted and **not** discarded: they are held in
+   `quarantine/YYYY-MM-DD.json` (idempotent by id; only if that file would exceed
+   `max_shard_bytes` are new ones dropped and counted in `dropped_lost_day`).
+4. **Recovery only from verified evidence** — `history.py recover --day YYYY-MM-DD` with exactly
+   one source; every gate runs before anything is written, and a refusal changes nothing:
+   - `--from-shard FILE [FILE …]`: earlier copies of the lost file(s), e.g.
+     `git show <commit>:data/history/days/2026/10/24.json > /tmp/24.json`. Each file's bytes and
+     sha256 must equal a recorded entry, its feature count must equal the recorded count, every
+     recorded part must be supplied or still present with its recorded sha256, and no unlisted
+     file for the date may remain. If the lost entry has no recorded evidence (flagged before it
+     was kept), add `--recorded-index` with an earlier `index.json` from git history.
+   - `--rebuild --rebuild-record RECORD`: a fresh, independent EUMETSAT search of the date made
+     with `python collect.py --rebuild-day YYYY-MM-DD --run-record RECORD` (writes only the run
+     record, never the feed or status). Gates: successful run with `slots_parsed: true`; `run_utc`
+     after the loss was detected; examined slots cover every second the index recorded as
+     searched on that date (the whole date if none was recorded); it contains every flash still
+     on disk or in quarantine; and its flash count equals the recorded count. With no recorded
+     count the rebuild is refused unless `--accept-unanchored` is given (audited
+     `anchored: false`). A partial or different count is never accepted.
+   On success the verified files are written, quarantined flashes are merged on top, the row is
+   restored, the date leaves `integrity.lost_days`, an audit record is appended to
+   `integrity.recoveries` (`method`, `verified_against`, input sha256s, `byte_identical`,
+   `quarantined_merged`, result counts/hashes, and for a rebuild the covered seconds), and
+   `verify` runs. Commit `data/history` by hand after reviewing the audit.
 
 ### Day shard (`uk-lightning-history-day.v1`)
 
@@ -167,8 +217,8 @@ returns `{index, feed, loadWindow, cacheStats, periods, states}`.
 ## Verification
 
 ```bash
-python -m unittest discover -s tests -v      # 49 tests: collector, archive, status
-node --test tests/test_history_window.mjs     # 24 tests: client rules
+python -m unittest discover -s tests -v      # collector, archive, status, workflow shell, shard_lost
+node --test tests/test_history_window.mjs     # client rules
 python history.py verify --archive-dir data/history
 ```
 
