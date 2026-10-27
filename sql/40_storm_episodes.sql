@@ -6,8 +6,14 @@
 -- before the first and after the last flash were searched: an episode is
 -- 'complete' only if both were. An episode is NOT a single storm cell (two
 -- simultaneous storms in the box merge) and says nothing about ground strikes.
+-- A shard_lost day is never searched time, even inside a scan window: its
+-- flashes are gone, so a gap or edge that touches it is unsearched.
 CREATE OR REPLACE VIEW storm_episodes AS
-WITH ordered AS (
+WITH lost AS (
+  SELECT CAST(date AS TIMESTAMPTZ) AS start_utc, CAST(date AS TIMESTAMPTZ) + INTERVAL 1 DAY AS end_utc
+  FROM coverage_days WHERE coverage = 'shard_lost'
+),
+ordered AS (
   SELECT id, time_utc, lon, lat,
          lag(time_utc) OVER (ORDER BY time_utc, id) AS prev_utc
   FROM flashes
@@ -18,7 +24,9 @@ marked AS (
       WHEN prev_utc IS NULL THEN 'first'
       WHEN time_utc - prev_utc > INTERVAL 30 MINUTE THEN 'quiet_gap'
       WHEN NOT EXISTS (SELECT 1 FROM scan_windows w
-                       WHERE w.start_utc <= o.prev_utc AND w.end_utc >= o.time_utc) THEN 'unsearched_gap'
+                       WHERE w.start_utc <= o.prev_utc AND w.end_utc >= o.time_utc)
+        OR EXISTS (SELECT 1 FROM lost l
+                   WHERE l.start_utc < o.time_utc AND l.end_utc > o.prev_utc) THEN 'unsearched_gap'
     END AS break_reason
   FROM ordered o
 ),
@@ -40,9 +48,13 @@ episodes AS (
 edged AS (
   SELECT e.*,
     EXISTS (SELECT 1 FROM scan_windows w
-            WHERE w.start_utc <= e.start_utc - INTERVAL 30 MINUTE AND w.end_utc >= e.start_utc) AS searched_30min_before,
+            WHERE w.start_utc <= e.start_utc - INTERVAL 30 MINUTE AND w.end_utc >= e.start_utc)
+      AND NOT EXISTS (SELECT 1 FROM lost l
+                      WHERE l.start_utc < e.start_utc AND l.end_utc > e.start_utc - INTERVAL 30 MINUTE) AS searched_30min_before,
     EXISTS (SELECT 1 FROM scan_windows w
-            WHERE w.start_utc <= e.end_utc AND w.end_utc >= e.end_utc + INTERVAL 30 MINUTE) AS searched_30min_after
+            WHERE w.start_utc <= e.end_utc AND w.end_utc >= e.end_utc + INTERVAL 30 MINUTE)
+      AND NOT EXISTS (SELECT 1 FROM lost l
+                      WHERE l.start_utc < e.end_utc + INTERVAL 30 MINUTE AND l.end_utc > e.end_utc) AS searched_30min_after
   FROM episodes e
 )
 SELECT
