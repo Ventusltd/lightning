@@ -10,7 +10,7 @@
 -- flashes are gone, so a gap or edge that touches it is unsearched.
 CREATE OR REPLACE VIEW storm_episodes AS
 WITH lost AS (
-  SELECT CAST(date AS TIMESTAMPTZ) AS start_utc, CAST(date AS TIMESTAMPTZ) + INTERVAL 1 DAY AS end_utc
+  SELECT CAST(date AS TIMESTAMP) AS start_utc, CAST(date AS TIMESTAMP) + INTERVAL 1 DAY AS end_utc
   FROM coverage_days WHERE coverage = 'shard_lost'
 ),
 ordered AS (

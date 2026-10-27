@@ -10,8 +10,8 @@ WITH bounds AS (
 ),
 hours AS (
   SELECT unnest(generate_series(
-           CAST(first_day AS TIMESTAMPTZ),
-           CAST(last_day AS TIMESTAMPTZ) + INTERVAL 23 HOUR,
+           CAST(first_day AS TIMESTAMP),
+           CAST(last_day AS TIMESTAMP) + INTERVAL 23 HOUR,
            INTERVAL 1 HOUR)) AS hour_utc
   FROM bounds
 ),

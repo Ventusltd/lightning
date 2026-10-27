@@ -13,10 +13,12 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
+import duckdb  # noqa: E402
 import pyarrow.parquet as pq  # noqa: E402
 
 import history  # noqa: E402
 import parquet_store as ps  # noqa: E402
+import rollups  # noqa: E402
 import verify_parquet as vp  # noqa: E402
 from collect import build_feature  # noqa: E402
 from test_parquet_store import NOW, real_archive, refresh_manifest, rewrite  # noqa: E402
@@ -115,6 +117,22 @@ class VerifierRecomputesCoverage(unittest.TestCase):
     def test_proximity_daily_hours_inflated(self):
         self.tampered("rollups/substation_optical_flash_proximity_daily.parquet",
                       lambda rows: rows[0].update(hours_observed=24.0, coverage="full"))
+
+    def test_duckdb_file_buckets_by_utc_in_any_session_time_zone(self):
+        out = self.dir / "lightning.duckdb"
+        rollups.main(["duckdb", "--store", str(self.store), "--out", str(out)])
+        daily = {r["date"]: r["flash_count"] for r in pq.read_table(self.store / "rollups/daily.parquet").to_pylist()}
+        hourly = [(r["hour_utc"].replace(tzinfo=None), r["flash_count"], r["scanned_seconds"])
+                  for r in vp.read_rows(self.store, "rollups/hourly/year=*/month=*/*.parquet")]
+        episodes = [r["episode_id"] for r in pq.read_table(self.store / "rollups/storm_episodes.parquet").to_pylist()]
+        for tz in ("Europe/London", "America/New_York", "Asia/Kolkata"):
+            con = duckdb.connect(str(out), read_only=True)
+            con.execute(f"SET TimeZone = '{tz}'")
+            self.assertEqual(dict(con.execute("SELECT date, flash_count FROM daily_optical_flashes").fetchall()), daily, tz)
+            self.assertEqual(con.execute("SELECT hour_utc, flash_count, scanned_seconds FROM hourly_optical_flashes "
+                                         "ORDER BY hour_utc").fetchall(), hourly, tz)
+            self.assertEqual([r[0] for r in con.execute("SELECT episode_id FROM storm_episodes").fetchall()], episodes, tz)
+            con.close()
 
     def test_headline_claims_complete(self):
         store = Path(tempfile.mkdtemp(dir=self.dir)) / "parquet"

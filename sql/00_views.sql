@@ -2,6 +2,11 @@
 -- directory) and {flashes_source} (the flash Parquet glob, or an empty typed
 -- relation when the archive has no flashes yet). Everything is UTC.
 --
+-- Every timestamp is exposed as a naive UTC TIMESTAMP (timezone('UTC', x)),
+-- so CAST(... AS DATE), date_trunc and time_bucket bucket by UTC in ANY
+-- session: SET TimeZone below does not persist in a lightning.duckdb file,
+-- and a reopened file starts in the host's local time zone.
+--
 -- Coverage contract, applied by every file in sql/:
 --   * coverage none (never searched) and shard_lost read UNKNOWN: their counts
 --     and hours_observed are NULL. They are never coalesced to 0.
@@ -11,17 +16,21 @@
 SET TimeZone = 'UTC';
 
 CREATE OR REPLACE VIEW flashes AS
-SELECT id, time_utc, lon, lat, source_product, observation_kind, ingest_run_id
+SELECT id, timezone('UTC', time_utc) AS time_utc, lon, lat, source_product, observation_kind, ingest_run_id
 FROM {flashes_source};
 
 CREATE OR REPLACE VIEW coverage_days AS
-SELECT * FROM read_parquet('{root}/coverage/days.parquet');
+SELECT * REPLACE (timezone('UTC', first_observation_utc) AS first_observation_utc,
+                  timezone('UTC', last_observation_utc) AS last_observation_utc)
+FROM read_parquet('{root}/coverage/days.parquet');
 
 CREATE OR REPLACE VIEW scan_windows AS
-SELECT * FROM read_parquet('{root}/coverage/scan_windows.parquet');
+SELECT * REPLACE (timezone('UTC', start_utc) AS start_utc, timezone('UTC', end_utc) AS end_utc)
+FROM read_parquet('{root}/coverage/scan_windows.parquet');
 
 CREATE OR REPLACE VIEW coverage_slots AS
-SELECT * FROM read_parquet('{root}/coverage/slots/year=*/month=*/*.parquet', hive_partitioning = false);
+SELECT * REPLACE (timezone('UTC', slot_start_utc) AS slot_start_utc)
+FROM read_parquet('{root}/coverage/slots/year=*/month=*/*.parquet', hive_partitioning = false);
 
 COMMENT ON VIEW flashes IS
   'EUMETSAT MTG LI L2-LFL optical lightning flashes over the UK box. Satellite optical detections: not ground strikes, not damage, not causality.';
