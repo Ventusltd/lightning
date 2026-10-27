@@ -6,6 +6,11 @@ on:
     # so a late or failed run is caught up by the next one (GitHub cron
     # drift of 5-141 min was observed; see docs/HISTORY_ONE_YEAR.md).
     - cron: "17 * * * *"
+    # Fallback slot. GitHub's scheduler delays and drops runs (27 Oct 2026:
+    # only 2 of the 13 hourly slots from 03:17 to 15:17 UTC produced a run).
+    # The gate job skips this slot when the :17 run already succeeded, so a
+    # dropped :17 costs ~30 min instead of an hour or more.
+    - cron: "47 * * * *"
   workflow_dispatch:
     inputs:
       hours:
@@ -15,16 +20,56 @@ on:
 
 permissions:
   contents: write
+  actions: read   # read this run's created_at for the heartbeat (queue time)
 
+# The hourly feed's own group. NO other workflow may use it: the backfill has
+# `uk-lightning-backfill`, so a multi-hour backfill can never queue the hourly
+# job (27 Oct 2026: run 40476905747 waited 91 min behind backfill 40464739813
+# while both shared `uk-lightning-update`). Within this group a run lasts at
+# most timeout-minutes (55), so a queued hourly run waits under an hour; GitHub
+# keeps one pending run per group and a newer one replaces it, which is
+# harmless because the self-healing lookback covers the skipped slot.
 concurrency:
   group: uk-lightning-update
   cancel-in-progress: false
 
 jobs:
+  # Cheap guard for the :47 fallback slot: skip when a run succeeded < 40 min ago.
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      due: ${{ steps.due.outputs.due }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The branch tip now, not the SHA the (possibly queued) run was created
+          # at: the gate must see the heartbeat of a run that just finished.
+          ref: ${{ github.ref }}
+          sparse-checkout: |
+            status.py
+            collect.py
+            data/status.json
+          sparse-checkout-cone-mode: false
+      - name: Decide whether this slot collects
+        id: due
+        run: |
+          python3 status.py due --status data/status.json --event "${{ github.event_name }}" \
+            --github-output "$GITHUB_OUTPUT"
+
   collect:
+    needs: gate
+    if: needs.gate.outputs.due == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
+      - name: Record run timing for the heartbeat
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "JOB_STARTED_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          created=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at 2>/dev/null || true)
+          echo "RUN_CREATED_UTC=$created" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -57,6 +102,8 @@ jobs:
             --run-record "$RUNNER_TEMP/lightning-run-record.json"
 
       # 2. Commit the public feed on its own, before anything touches the archive.
+      #    Only this job writes the feed; a rejected push (a backfill commit
+      #    landed) is replayed by restoring the saved feed onto the new main.
       - name: Commit latest public GeoJSON (feed commit)
         if: steps.collect.outcome == 'success'
         run: |
@@ -64,11 +111,12 @@ jobs:
             echo "No changed feed output"
             exit 0
           fi
+          cp data/uk_lightning.geojson "$RUNNER_TEMP/lightning-feed.geojson"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/uk_lightning.geojson
-          git commit -m "data: refresh UK satellite lightning flash layer"
-          git push || (git pull --rebase origin main && git push)
+          bash ci/push-with-replay.sh "data: refresh UK satellite lightning flash layer" \
+            'cp "$RUNNER_TEMP/lightning-feed.geojson" data/uk_lightning.geojson' \
+            data/uk_lightning.geojson
 
       # 3. Append to the one-year UTC archive (index v2 + day shards). A failure
       #    here (for example a shard above max_shard_bytes) never blocks the feed.
@@ -95,32 +143,36 @@ jobs:
             --run-record "$RUNNER_TEMP/lightning-run-record.json" \
             --archive-result "$RUNNER_TEMP/lightning-archive-result.json" \
             --collect-outcome "${{ steps.collect.outcome }}" \
-            --archive-outcome "${{ steps.archive.outcome }}"
+            --archive-outcome "${{ steps.archive.outcome }}" \
+            --trigger "${{ github.event_name }}" --run-id "${{ github.run_id }}" \
+            --run-created "${RUN_CREATED_UTC:-}" --job-started "${JOB_STARTED_UTC:-}"
 
-      # 5. Commit archive and status separately from the feed.
+      # 5. Commit archive and status separately from the feed. If a backfill
+      #    pushed in the meantime, the push is rejected and the archive ingest
+      #    and status write are REPLAYED on top of the backfill's commit from
+      #    the run record (no textual merge of index.json / status.json).
       - name: Commit archive and status (archive commit)
         if: always()
+        env:
+          ARCHIVE_OUTCOME: ${{ steps.archive.outcome }}
+          COLLECT_OUTCOME: ${{ steps.collect.outcome }}
+          TRIGGER: ${{ github.event_name }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          # Add the paths separately: before the first successful archive write
-          # data/history does not exist and a combined pathspec aborts with 128,
-          # losing the heartbeat.
-          git add -A -- data/status.json
-          if [ "${{ steps.archive.outcome }}" = "success" ] && [ -d data/history ]; then
-            git add -A -- data/history
-          elif [ -d data/history ]; then
+          if [ "$ARCHIVE_OUTCOME" != "success" ] && [ -d data/history ]; then
             # A failed or unverified archive step is never committed: drop any
             # half-written shard/index and keep the last committed archive.
             git checkout -- data/history 2>/dev/null || true
             git clean -fdq -- data/history
           fi
-          if git diff --cached --quiet; then
-            echo "No changed archive or status"
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "data: archive UTC day shards, index v2 and collector status"
-          git push || (git pull --rebase origin main && git push)
+          # Paths are staged one by one inside the helper: before the first
+          # successful archive write data/history does not exist and a combined
+          # pathspec aborts with 128, losing the heartbeat.
+          bash ci/push-with-replay.sh "data: archive UTC day shards, index v2 and collector status" \
+            'bash ci/replay-hourly-archive.sh' \
+            data/status.json data/history
 
       # 6. Make a failed collection or archive visible in the Actions UI even
       #    though the steps above were allowed to continue. A shard_lost
