@@ -15,9 +15,16 @@ Collection model (data plane only, nothing here touches GridAtlas):
   the query window is unobserved and is recorded as such (unknown, not zero);
 - one unreadable product (ZIP without a BODY NetCDF, corrupt ZIP or NetCDF)
   does not stop the run: its slot is UNPARSED, i.e. not searched time, so it
-  stays unknown (never zero) and is listed with its reason in the run record.
-  Network/auth/rate-limit errors still stop the run, and so does a UTC date
-  with more than ``MAX_UNPARSED_DAY_FRACTION`` of its slots unparsed;
+  stays unknown (never zero) and is listed with its reason in the run record;
+- each product download retries transient errors (IncompleteRead,
+  ProtocolError, ConnectionError, ChunkedEncodingError, timeouts, HTTP
+  500/502/503/504) 4 times with exponential backoff and jitter (2, 4, 8, 16 s,
+  capped at 30 s), waits out up to 3 HTTP 429 Retry-Afters (at most 60 s each)
+  and re-requests the access token once on 401. A product still failing is
+  UNPARSED too (unknown, never zero, with its reason) and the run carries on.
+  The run stops on ``MAX_CONSECUTIVE_FAILED_PRODUCTS`` failed downloads in a
+  row (likely outage), on any other HTTP/auth error, and on a UTC date with
+  more than ``MAX_UNPARSED_DAY_FRACTION`` of its slots unparsed;
 - the live 7-day feed is written first; the one-year archive and the status
   file are produced by separate steps from the run record this module leaves
   behind, so an archive failure can never block the feed.
@@ -65,13 +72,191 @@ MAX_UNPARSED_DAY_FRACTION = 0.20
 PRODUCT_CONTENT_ERRORS = (ValueError, zipfile.BadZipFile, zipfile.LargeZipFile, zlib.error, EOFError,
                           OSError, RuntimeError, KeyError, IndexError, TypeError)
 
+# Per-product DOWNLOAD retries (open + read of one product). Transient errors are
+# matched by class name anywhere in the exception's MRO or cause chain, so the
+# urllib3/requests/http.client classes match without importing those packages.
+TRANSIENT_ERROR_NAMES = frozenset({
+    "IncompleteRead", "ProtocolError", "ConnectionError", "ChunkedEncodingError",
+    "Timeout", "TimeoutError", "ReadTimeout", "ConnectTimeout", "ReadTimeoutError", "ConnectTimeoutError",
+    "RemoteDisconnected",
+})
+TRANSIENT_HTTP_STATUS = frozenset({500, 502, 503, 504})
+TRANSIENT_RETRIES = 4
+RETRY_BACKOFF_SECONDS = (2, 4, 8, 16)  # exponential; up to +50 % jitter, never above the cap
+RETRY_MAX_BACKOFF_SECONDS = 30
+RATE_LIMIT_MAX_WAITS = 3
+RATE_LIMIT_MAX_WAIT_SECONDS = 60
+# This many products in a row failing to download is a likely EUMETSAT outage: stop.
+MAX_CONSECUTIVE_FAILED_PRODUCTS = 5
+MAX_RETRY_EVENTS = 200  # cap the per-event list kept in the run record
+_HTTP_STATUS_IN_TEXT = re.compile(r"\bHTTP (\d{3})\b|\b(?:error|Unauthorised|Not found) \((\d{3})\)")
+
 
 class TooManyUnparsed(RuntimeError):
     """A date has too many unreadable products (or none readable): stop, leave it unknown."""
 
-    def __init__(self, message: str, unparsed=()):
+    def __init__(self, message: str, unparsed=(), retries=None):
         super().__init__(message)
         self.unparsed = list(unparsed)
+        self.retries = retries
+
+
+class DownloadOutage(RuntimeError):
+    """``MAX_CONSECUTIVE_FAILED_PRODUCTS`` products in a row failed to download: stop the search."""
+
+    def __init__(self, message: str, unparsed=(), retries=None):
+        super().__init__(message)
+        self.unparsed = list(unparsed)
+        self.retries = retries
+
+
+def _sleep(seconds: float) -> None:
+    import time
+    time.sleep(seconds)
+
+
+def _error_chain(error: BaseException):
+    seen = set()
+    while error is not None and id(error) not in seen:
+        seen.add(id(error))
+        yield error
+        error = error.__cause__ or error.__context__
+
+
+def http_status(error: BaseException) -> int | None:
+    """HTTP status carried by an eumdac/requests error (or its cause), else None."""
+    for item in _error_chain(error):
+        for value in (getattr(getattr(item, "response", None), "status_code", None),
+                      getattr(item, "status_code", None),
+                      (getattr(item, "extra_info", None) or {}).get("status")
+                      if isinstance(getattr(item, "extra_info", None), dict) else None):
+            if isinstance(value, int) and 100 <= value <= 599:
+                return value
+    match = _HTTP_STATUS_IN_TEXT.search(str(error))
+    if match:
+        return int(match.group(1) or match.group(2))
+    return None
+
+
+def retry_after_seconds(error: BaseException, *, now: datetime | None = None) -> float | None:
+    """Retry-After (seconds or HTTP date) from the error's response headers, else None."""
+    from email.utils import parsedate_to_datetime
+    for item in _error_chain(error):
+        headers = getattr(getattr(item, "response", None), "headers", None) or getattr(item, "headers", None)
+        if not headers:
+            continue
+        value = next((v for k, v in dict(headers).items() if str(k).lower() == "retry-after"), None)
+        if value is None:
+            continue
+        text = str(value).strip()
+        try:
+            return max(0.0, float(text))
+        except ValueError:
+            pass
+        try:
+            when = parsedate_to_datetime(text)
+        except (TypeError, ValueError):
+            continue
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        return max(0.0, (when - (now or datetime.now(timezone.utc))).total_seconds())
+    return None
+
+
+def classify_download_error(error: BaseException) -> tuple[str, str]:
+    """(kind, label): kind is 'rate_limit', 'auth', 'transient' or 'fatal'."""
+    status = http_status(error)
+    if status == 429:
+        return "rate_limit", "HTTP 429"
+    if status == 401:
+        return "auth", "HTTP 401"
+    if status in TRANSIENT_HTTP_STATUS:
+        return "transient", f"HTTP {status}"
+    if status is not None:
+        return "fatal", f"HTTP {status}"
+    for item in _error_chain(error):
+        names = [cls.__name__ for cls in type(item).__mro__]
+        hit = next((n for n in names if n in TRANSIENT_ERROR_NAMES), None)
+        if hit:
+            return "transient", type(error).__name__ if type(error).__name__ in TRANSIENT_ERROR_NAMES else hit
+    return "fatal", type(error).__name__
+
+
+def backoff_seconds(retry: int, rng) -> float:
+    """Wait before transient retry ``retry`` (1-based): base * (1..1.5), capped at 30 s."""
+    base = RETRY_BACKOFF_SECONDS[min(retry, len(RETRY_BACKOFF_SECONDS)) - 1]
+    if base >= RETRY_MAX_BACKOFF_SECONDS:
+        return float(RETRY_MAX_BACKOFF_SECONDS)
+    return round(min(RETRY_MAX_BACKOFF_SECONDS, base * (1 + 0.5 * rng())), 3)
+
+
+def refresh_access_token(product) -> None:
+    """Force eumdac to request a new access token for this product's data store."""
+    token = getattr(getattr(product, "datastore", None), "token", None)
+    if token is None or not hasattr(token, "_update_token_data"):
+        raise RuntimeError("cannot re-request the EUMETSAT access token (no eumdac token on the product)")
+    token._update_token_data()
+
+
+def new_retry_stats() -> dict:
+    return {"retries": 0, "products_retried": 0, "products_failed": 0, "failed_products": [],
+            "rate_limit_waits": 0, "rate_limit_wait_seconds": 0, "backoff_seconds": 0,
+            "token_refreshes": 0, "max_consecutive_failed_products": 0, "reasons": {}, "events": [],
+            "policy": {"transient_retries": TRANSIENT_RETRIES, "backoff_seconds": list(RETRY_BACKOFF_SECONDS),
+                       "max_backoff_seconds": RETRY_MAX_BACKOFF_SECONDS, "rate_limit_max_waits": RATE_LIMIT_MAX_WAITS,
+                       "rate_limit_max_wait_seconds": RATE_LIMIT_MAX_WAIT_SECONDS,
+                       "max_consecutive_failed_products": MAX_CONSECUTIVE_FAILED_PRODUCTS}}
+
+
+def fetch_product(product, name: str, stats: dict, *, sleep, rng, token_refresher):
+    """Open and read one product, retrying transient errors; (blob, None) or (None, (error, attempts)).
+
+    Transient errors: up to ``TRANSIENT_RETRIES`` retries with exponential backoff
+    and jitter. 429: up to ``RATE_LIMIT_MAX_WAITS`` waits of Retry-After (at most
+    60 s). 401: the access token is re-requested once. When these are used up
+    the product FAILED: (None, ...) is returned, the caller marks its slot
+    unparsed. A second 401, any other HTTP status and any other error propagate.
+    """
+    transient = waits = refreshes = attempts = 0
+    retried = False
+    while True:
+        attempts += 1
+        try:
+            with product.open() as stream:
+                return stream.read(), None
+        except Exception as error:  # noqa: BLE001 - classified below; unknown kinds re-raised
+            kind, label = classify_download_error(error)
+            if kind == "fatal" or (kind == "auth" and refreshes >= 1):
+                raise
+            if kind == "transient" and transient < TRANSIENT_RETRIES:
+                transient += 1
+                wait = backoff_seconds(transient, rng)
+                stats["backoff_seconds"] = round(stats["backoff_seconds"] + wait, 3)
+            elif kind == "rate_limit" and waits < RATE_LIMIT_MAX_WAITS:
+                waits += 1
+                after = retry_after_seconds(error)
+                wait = min(RATE_LIMIT_MAX_WAIT_SECONDS, after if after is not None else RATE_LIMIT_MAX_WAIT_SECONDS)
+                stats["rate_limit_waits"] += 1
+                stats["rate_limit_wait_seconds"] = round(stats["rate_limit_wait_seconds"] + wait, 3)
+            elif kind == "auth":
+                refreshes += 1
+                wait = 0
+                stats["token_refreshes"] += 1
+                (token_refresher or refresh_access_token)(product)
+            else:
+                return None, (error, attempts, label)
+            stats["retries"] += 1
+            stats["reasons"][label] = stats["reasons"].get(label, 0) + 1
+            if not retried:
+                retried = True
+                stats["products_retried"] += 1
+            if len(stats["events"]) < MAX_RETRY_EVENTS:
+                stats["events"].append({"product": name, "attempt": attempts, "reason": label,
+                                        "error": f"{type(error).__name__}: {error}"[:300], "wait_seconds": wait})
+            print(f"RETRY product {name} after attempt {attempts} ({label}: {error}); waiting {wait} s",
+                  file=sys.stderr)
+            if wait:
+                sleep(wait)
 
 
 def parse_utc(value: str) -> datetime:
@@ -190,35 +375,64 @@ def search_products(start: datetime, end: datetime):
     return products
 
 
-def unparsed_entry(product_name: str, error: BaseException) -> dict:
+def unparsed_entry(product_name: str, error: BaseException, *, kind: str = "content", reason: str | None = None,
+                   attempts: int | None = None) -> dict:
     slot = product_slot(product_name)
-    return {
+    entry = {
         "product": product_name,
-        "reason": f"{type(error).__name__}: {error}"[:1000],
+        "kind": kind,
+        "reason": (reason or f"{type(error).__name__}: {error}")[:1000],
         "slot_start_utc": iso_utc(slot[0]) if slot else None,
         "slot_end_utc": iso_utc(slot[1]) if slot else None,
     }
+    if attempts is not None:
+        entry["attempts"] = attempts
+    return entry
 
 
-def download_products(products, start: datetime, end: datetime, *, body_decoder=None):
-    """Download and decode each product: (features, readable count, readable names, unparsed).
+def download_products(products, start: datetime, end: datetime, *, body_decoder=None, sleep=None, rng=None,
+                      token_refresher=None):
+    """Download and decode each product: (features, readable count, readable names, unparsed, retry stats).
 
-    The download (``open``/``read``) is outside the per-product guard, so any
-    network, auth, rate-limit or timeout error propagates and stops the run.
-    Only a content error while decoding bytes already in hand makes that one
-    product UNPARSED; its name is then NOT among the examined names, so its slot
-    is not searched time (unknown, never zero).
+    Each download (``open``/``read``) goes through ``fetch_product``: transient
+    network errors, 5xx, 429 and one 401 are retried. A product whose retries
+    are used up, or whose downloaded bytes cannot be decoded, is UNPARSED: its
+    name is NOT among the examined names, so its slot is not searched time
+    (unknown, never zero) and the search carries on. ``DownloadOutage`` stops it
+    after ``MAX_CONSECUTIVE_FAILED_PRODUCTS`` failed downloads in a row; any
+    non-retryable error (403, 404, a second 401, ...) propagates and stops it.
     """
+    import random
+    sleep = sleep or _sleep
+    rng = rng or random.random
     found, names, unparsed = [], [], []
-    downloaded = 0
+    stats = new_retry_stats()
+    downloaded = consecutive = 0
     for product in products:
         downloaded += 1
         if downloaded > 1000:
             raise RuntimeError("Too many products in one run; reduce --hours.")
         name = str(product)
         print(f"Product {downloaded}: {name}", file=sys.stderr)
-        with product.open() as stream:
-            blob = stream.read()
+        blob, failure = fetch_product(product, name, stats, sleep=sleep, rng=rng, token_refresher=token_refresher)
+        if failure is not None:
+            error, attempts, label = failure
+            entry = unparsed_entry(name, error, kind="download", attempts=attempts,
+                                   reason=f"download failed after {attempts} attempts ({label}): "
+                                          f"{type(error).__name__}: {error}")
+            unparsed.append(entry)
+            stats["products_failed"] += 1
+            stats["failed_products"].append(name)
+            consecutive += 1
+            stats["max_consecutive_failed_products"] = max(stats["max_consecutive_failed_products"], consecutive)
+            print(f"UNPARSED product {name}: {entry['reason']} (slot left unknown)", file=sys.stderr)
+            if consecutive >= MAX_CONSECUTIVE_FAILED_PRODUCTS:
+                raise DownloadOutage(
+                    f"{consecutive} consecutive products failed to download after retries (likely EUMETSAT "
+                    f"outage); search stopped, dates left unknown (last: {entry['reason']})"[:2000],
+                    unparsed, stats)
+            continue
+        consecutive = 0
         try:
             features = decode_product(blob, name, start, end, body_decoder=body_decoder)
         except PRODUCT_CONTENT_ERRORS as error:
@@ -230,20 +444,21 @@ def download_products(products, start: datetime, end: datetime, *, body_decoder=
         found.extend(features)
     if downloaded == 0:
         raise RuntimeError("Empty product search. Existing map data left unchanged.")
-    return found, len(names), names, unparsed
+    return found, len(names), names, unparsed, stats
 
 
 def download(start: datetime, end: datetime):
-    """Return (features, readable products, readable names, unparsed products) for a real search."""
+    """Return (features, readable products, readable names, unparsed, retry stats) for a real search."""
     return download_products(search_products(start, end), start, end)
 
 
 def unpack_download(result):
-    """Downloaders return (features, count, names) or (features, count, names, unparsed)."""
-    if len(result) == 3:
-        return (*result, [])
-    features, count, names, unparsed = result
-    return features, count, names, list(unparsed or [])
+    """Downloaders return (features, count, names[, unparsed[, retry stats]]); always returns all five."""
+    result = tuple(result)
+    features, count, names = result[:3]
+    unparsed = list(result[3] or []) if len(result) > 3 else []
+    stats = result[4] if len(result) > 4 and result[4] is not None else new_retry_stats()
+    return features, count, names, unparsed, stats
 
 
 def check_unparsed(unparsed, names, beginning: datetime, end: datetime, *,
@@ -491,6 +706,7 @@ def build_run_record(
     existing,
     feed,
     unparsed=(),
+    retries=None,
 ) -> dict:
     """Everything the archive and status steps need; never committed itself."""
     ranges, slot_starts, parsed = scanned_ranges(product_names, beginning, now)
@@ -515,6 +731,8 @@ def build_run_record(
         "unparsed_products": list(unparsed),
         "unparsed_slots_utc": unparsed_slot_starts(unparsed, product_names, beginning, now),
         "max_unparsed_day_fraction": MAX_UNPARSED_DAY_FRACTION,
+        # Per-product download retries (transient errors, 429 waits, 401 token refresh).
+        "download_retries": retries if retries is not None else new_retry_stats(),
         "scanned_ranges": _iso_pairs(ranges),
         "scanned_end_utc": iso_utc(max(e for _, e in ranges)) if ranges else None,
         "unscanned_ranges": _iso_pairs(gaps),
@@ -524,7 +742,7 @@ def build_run_record(
         "feed_total_before_display_cap": feed["metadata"]["total_before_display_cap"],
         "feed_latest_detection_utc": feed["metadata"]["latest_detection_utc"],
         "note": ("Only examined 10-minute slots count as searched; the unobserved tail, gaps and unparsed "
-                 "(unreadable) product slots are unknown, not zero."),
+                 "(unreadable or failed-download) product slots are unknown, not zero."),
         # Uncapped incoming detections plus the previously published feed (the
         # seed on the first archive run; idempotent afterwards).
         "features": [*existing, *incoming],
@@ -550,23 +768,26 @@ def rebuild_day_record(day: str, run_record: Path, *, now: datetime | None = Non
     end = min(start + timedelta(days=1), now)
     if end <= start:
         raise ValueError(f"{day} has not started yet")
-    incoming, product_count, names, unparsed = unpack_download((downloader or download)(start, end))
+    product_count, unparsed, retries = 0, [], None
     try:
+        incoming, product_count, names, unparsed, retries = unpack_download((downloader or download)(start, end))
         check_unparsed(unparsed, names, start, end)
-    except TooManyUnparsed as error:
+    except (TooManyUnparsed, DownloadOutage) as error:
+        unparsed = error.unparsed if isinstance(error, DownloadOutage) else unparsed
+        retries = error.retries if isinstance(error, DownloadOutage) else retries
         write_json(run_record, {
             "schema": RUN_RECORD_SCHEMA, "run_utc": iso_utc(now), "outcome": "failure",
             "error": f"{type(error).__name__}: {error}", "rebuild_day_utc": day,
             "query_start_utc": iso_utc(start), "query_end_utc": iso_utc(end),
             "products_examined": product_count, "products_unparsed": len(unparsed),
-            "unparsed_products": unparsed, "scanned_ranges": [], "features": [],
+            "unparsed_products": unparsed, "download_retries": retries, "scanned_ranges": [], "features": [],
         })
         raise
     record = build_run_record(
         now=end, beginning=start, lookback_source="rebuild", lookback_capped=False, last_success_before=None,
         product_names=names, products_examined=product_count, incoming=incoming, existing=[],
         feed={"features": [], "metadata": {"total_before_display_cap": None, "latest_detection_utc": None}},
-        unparsed=unparsed,
+        unparsed=unparsed, retries=retries,
     )
     record["run_utc"] = iso_utc(now)
     record["rebuild_day_utc"] = day
@@ -575,7 +796,7 @@ def rebuild_day_record(day: str, run_record: Path, *, now: datetime | None = Non
     write_json(run_record, record)
     print(f"Rebuild of {day}: {len(incoming)} flashes from {product_count} products "
           f"({record['slots_examined']} slots examined, {len(record['unscanned_ranges'])} gaps, "
-          f"{record['products_unparsed']} unparsed product(s)).", file=sys.stderr)
+          f"{record['products_unparsed']} unparsed product(s), {retries['retries']} download retries).", file=sys.stderr)
     return 0
 
 
@@ -618,18 +839,20 @@ def main(argv=None, *, now: datetime | None = None):
     print(f"Query window {iso_utc(beginning)} -> {iso_utc(now)} ({window.total_seconds() / 3600:.2f} h, "
           f"source={source}, capped={capped}, last successful scan end={iso_utc(last_success) if last_success else 'none'})",
           file=sys.stderr)
-    unparsed = []
+    unparsed, retries = [], None
     try:
-        incoming, product_count, names, unparsed = unpack_download(download(beginning, now))
+        incoming, product_count, names, unparsed, retries = unpack_download(download(beginning, now))
         check_unparsed(unparsed, names, beginning, now)
         existing = read_previous(args.out)
         result = assemble(existing, incoming, now, retention_days=args.retention_days)
         record = build_run_record(
             now=now, beginning=beginning, lookback_source=source, lookback_capped=capped,
             last_success_before=last_success, product_names=names, products_examined=product_count,
-            incoming=incoming, existing=existing, feed=result, unparsed=unparsed,
+            incoming=incoming, existing=existing, feed=result, unparsed=unparsed, retries=retries,
         )
     except Exception as error:  # noqa: BLE001 - the record must name any failure
+        if isinstance(error, DownloadOutage):
+            unparsed, retries = error.unparsed, error.retries
         if args.run_record:
             write_json(args.run_record, {
                 "schema": RUN_RECORD_SCHEMA, "run_utc": iso_utc(now), "outcome": "failure",
@@ -638,7 +861,7 @@ def main(argv=None, *, now: datetime | None = None):
                 "lookback_source": source, "lookback_capped": capped,
                 "last_successful_scan_end_utc_before_run": iso_utc(last_success) if last_success else None,
                 "products_examined": 0, "products_unparsed": len(unparsed), "unparsed_products": unparsed,
-                "scanned_ranges": [], "features": [],
+                "download_retries": retries, "scanned_ranges": [], "features": [],
             })
         raise
     # Refresh provenance only when a successful query returned product files.
@@ -646,6 +869,7 @@ def main(argv=None, *, now: datetime | None = None):
     meta["products_examined"] = product_count
     meta["slots_examined"] = record["slots_examined"]
     meta["products_unparsed"] = record["products_unparsed"]
+    meta["download_retries"] = record["download_retries"]["retries"]
     meta["query_start_utc"] = iso_utc(beginning)
     meta["query_end_utc"] = iso_utc(now)
     meta["scan_end_utc"] = record["scanned_end_utc"]
@@ -660,7 +884,7 @@ def main(argv=None, *, now: datetime | None = None):
     print(f"Published {len(result['features'])} genuine optical flashes from {product_count} EUMETSAT products "
           f"({record['slots_examined']} slots examined, {len(record['unscanned_ranges'])} gaps, "
           f"tail unobserved {record['tail_unobserved_seconds']} s, "
-          f"{record['products_unparsed']} unparsed product(s)).")
+          f"{record['products_unparsed']} unparsed product(s), {record['download_retries']['retries']} download retries).")
     return 0
 
 

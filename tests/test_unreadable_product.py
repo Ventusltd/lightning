@@ -143,6 +143,10 @@ class Base(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.base = Path(self.temp.name)
         self.record = self.base / "rb.json"
+        self.sleeps = []  # download retries never really sleep in tests
+        patcher = mock.patch.object(collect, "_sleep", self.sleeps.append)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         self.temp.cleanup()
@@ -235,15 +239,25 @@ class RebuildDayTests(Base):
         self.assertEqual(len(rec["unparsed_products"]), 29)
         self.assertEqual(rec["features"], [])
 
-    def test_network_auth_rate_limit_and_timeout_errors_still_stop(self):
-        for error in (RuntimeError("HTTP 429 Too Many Requests"), RuntimeError("HTTP 401 Unauthorized"),
-                      RuntimeError("HTTP 403 Forbidden"), RuntimeError("HTTP 503 Service Unavailable"),
-                      TimeoutError("read timed out"), ConnectionResetError(104, "Connection reset by peer")):
+    def test_non_retryable_http_and_auth_errors_still_stop(self):
+        # 401 here: the fake product has no eumdac token to re-request, so it stops too.
+        for error in (RuntimeError("HTTP 401 Unauthorized"), RuntimeError("HTTP 403 Forbidden"),
+                      RuntimeError("HTTP 404 Not Found"), PermissionError("denied")):
             with self.subTest(error=error):
                 self.record.unlink(missing_ok=True)
                 with self.assertRaises(type(error)):
                     self.rebuild(FakeEumetsat(net_error={7: error}))
                 self.assertFalse(self.record.exists() and self.load().get("outcome") == "success")
+
+    def test_persistent_transient_errors_leave_one_unparsed_slot_after_retries(self):
+        # Since the download-retry fix: retried, then the slot is unknown and the day carries on.
+        for error in (RuntimeError("HTTP 429 Too Many Requests"), RuntimeError("HTTP 503 Service Unavailable"),
+                      TimeoutError("read timed out"), ConnectionResetError(104, "Connection reset by peer")):
+            with self.subTest(error=error):
+                self.assertEqual(self.rebuild(FakeEumetsat(net_error={7: error})), 0)
+                rec = self.load()
+                self.assertEqual((rec["outcome"], rec["products_unparsed"]), ("success", 1))
+                self.assertEqual(rec["unparsed_products"][0]["kind"], "download")
 
     @unittest.skipIf(__import__("importlib").util.find_spec("netCDF4") is not None, "netCDF4 installed")
     def test_a_missing_netcdf_library_is_not_an_unparsed_product(self):
@@ -324,10 +338,10 @@ class HourlyTests(Base):
         self.assertEqual(rec["products_unparsed"], 10)
         self.assertFalse((self.base / "feed.geojson").exists())
 
-    def test_hourly_network_error_still_stops(self):
+    def test_hourly_non_retryable_error_still_stops(self):
         now = datetime(2026, 10, 20, 12, 5, tzinfo=timezone.utc)
         with self.assertRaises(RuntimeError):
-            self.run_main(FakeEumetsat(net_error={2: RuntimeError("HTTP 429 Too Many Requests")}), now)
+            self.run_main(FakeEumetsat(net_error={2: RuntimeError("HTTP 403 Forbidden")}), now)
         self.assertEqual(self.load()["outcome"], "failure")
 
 
