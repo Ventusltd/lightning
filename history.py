@@ -29,6 +29,7 @@ import json
 import math
 import os
 import re
+import shutil
 import sys
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
@@ -63,7 +64,9 @@ SPLIT_NOTE = (
 )
 SEED_NOTE = (
     "Prospective archive: it begins at archive_first_enabled_utc; earlier dates come from the "
-    "7-day live feed seed over partially scanned days. Nothing is backfilled or interpolated. "
+    "7-day live feed seed over partially scanned days. Nothing is interpolated; a never-searched "
+    "date is only filled by an explicit backfill (history.py backfill) from a fresh whole-day EUMETSAT "
+    "search, with that search's examined slots as its coverage. "
     "A day with flashes but no recorded scan window gets coverage partial with scanned_seconds "
     "= the 10-minute slots its flashes prove were examined (a lower bound)."
 )
@@ -72,6 +75,7 @@ QUARANTINE_NOTE = (
     "Flashes observed for a shard_lost date after the loss. They are NOT counted in the index "
     "(the date stays unknown) until a verified recovery merges them (history.py recover)."
 )
+BACKFILL_MAX_DAYS = 31  # dates considered per backfill run (workflow input ``days``)
 DAY_PATTERN = re.compile(r"^days/(\d{4})/(\d{2})/(\d{2})\.json$")
 PART_PATTERN = re.compile(r"^days/(\d{4})/(\d{2})/(\d{2})/(\d{2})\.json$")
 
@@ -1030,9 +1034,168 @@ def recover_day(
     return {"index": result["index"], "audit": audit, "verify": checked}
 
 
+def _never_searched(row: dict | None, lost: set[str]) -> bool:
+    return (row is not None and row.get("coverage") == "none" and row.get("count") is None
+            and not row.get("shard_lost") and row.get("date") not in lost)
+
+
+def backfill_plan(archive_dir: Path, *, end_date: date, days: int, today: date) -> list[str]:
+    """UTC dates in ``[end_date - days + 1, end_date]``, newest first, that the index
+    marks never searched (coverage none / count null and not shard_lost).
+
+    shard_lost dates are excluded: they need ``recover``, never a backfill. Dates
+    before the retention cutoff or missing from the index are not listed.
+    """
+    if not 1 <= days <= BACKFILL_MAX_DAYS:
+        raise ValueError(f"days must be 1..{BACKFILL_MAX_DAYS}")
+    if end_date >= today:
+        raise ValueError(f"end_date {end_date} must be a complete past UTC date (before {today})")
+    index = _load_old_index(Path(archive_dir) / "index.json")
+    if index is None:
+        raise ValueError("no index.json: the hourly job creates the archive (and its seed) first; "
+                         "a backfill only fills dates of an existing index")
+    rows = {r.get("date"): r for r in index.get("days") or [] if isinstance(r, dict)}
+    lost = {str(e.get("date")) for e in (index.get("integrity") or {}).get("lost_days") or [] if isinstance(e, dict)}
+    cutoff = year_ago(today)
+    plan = []
+    day = end_date
+    for _ in range(days):
+        if day < cutoff:
+            break
+        if _never_searched(rows.get(day.isoformat()), lost):
+            plan.append(day.isoformat())
+        day -= timedelta(days=1)
+    return plan
+
+
+def backfill_day(
+    archive_dir: Path,
+    day: str,
+    *,
+    now: datetime,
+    rebuild_record: Path,
+    max_shard_bytes: int = MAX_SHARD_BYTES,
+    target_shard_bytes: int = TARGET_SHARD_BYTES,
+) -> dict:
+    """Ingest a ``collect.py --rebuild-day`` record for a NEVER-SEARCHED date.
+
+    Distinct from ``recover`` (shard_lost dates, verified against a recorded
+    count): here nothing was ever recorded, so the date simply becomes searched
+    with the rebuild's real coverage, i.e. the union of its examined 10-minute
+    slots. Gaps in that search stay unknown; a count of 0 is only possible for
+    searched time. Gates run first; the ingest and ``verify`` then run on a
+    staging copy that replaces the archive only when both succeed, so a refusal
+    or any failure (e.g. ``ShardTooLarge``) changes nothing.
+    """
+    now = now.astimezone(timezone.utc)
+    archive_dir = Path(archive_dir)
+    day = date.fromisoformat(day).isoformat()
+    index = _load_old_index(archive_dir / "index.json")
+    if index is None:
+        raise ValueError("no index.json: the hourly job creates the archive (and its seed) first; nothing to backfill")
+    row = next((r for r in index.get("days") or [] if r.get("date") == day), None)
+    lost = {str(e.get("date")) for e in (index.get("integrity") or {}).get("lost_days") or [] if isinstance(e, dict)}
+    if row is None:
+        raise ValueError(f"{day} has no row in the index (outside retention or index out of date)")
+    if row.get("shard_lost") or day in lost:
+        raise ValueError(f"{day} is shard_lost: use history.py recover (verified recovery), not backfill")
+    if not _never_searched(row, lost):
+        raise ValueError(f"{day} was already searched (coverage {row.get('coverage')}, count {row.get('count')}); "
+                         "backfill only fills never-searched dates")
+    day_start = datetime.combine(date.fromisoformat(day), time.min, tzinfo=timezone.utc)
+    day_end = day_start + timedelta(days=1)
+    if day_end > now:
+        raise ValueError(f"{day} has not ended yet")
+
+    raw = Path(rebuild_record).read_bytes()
+    record = json.loads(raw)
+    if not isinstance(record, dict) or record.get("schema") != RUN_RECORD_SCHEMA:
+        raise ValueError(f"{rebuild_record}: not a collect.py run record")
+    if record.get("rebuild_day_utc") != day:
+        raise ValueError(f"{rebuild_record}: a rebuild of {record.get('rebuild_day_utc')}, not of {day}")
+    if record.get("outcome") != "success" or int(record.get("products_examined") or 0) < 1:
+        raise ValueError(f"{rebuild_record}: the rebuild collection did not succeed with examined products")
+    if record.get("slots_parsed") is not True:
+        raise ValueError(f"{rebuild_record}: slots_parsed is not true, so examined slots are unproven; refusing")
+    if (parse_utc(record["query_start_utc"]) != day_start or parse_utc(record["query_end_utc"]) != day_end
+            or parse_utc(record["run_utc"]) < day_end):
+        raise ValueError(f"{rebuild_record}: not a search of the whole UTC date {day} made after it ended")
+    windows = windows_from_run_record(record)
+    if not windows:
+        raise ValueError(f"{rebuild_record}: no examined slot; the date stays unknown")
+    spans = [(parse_utc(w["start_utc"]), parse_utc(w["end_utc"])) for w in windows]
+    if any(s < day_start or e > day_end for s, e in spans):
+        raise ValueError(f"{rebuild_record}: scanned ranges leave {day}")
+    cutoff = year_ago(now.date())
+    found: dict[str, dict] = {}
+    for feature in record.get("features") or []:
+        valid = validate_feature(feature, now, cutoff)
+        if valid is None or valid[0] != day:
+            raise ValueError(f"{rebuild_record}: invalid or wrong-day observation {feature.get('id') if isinstance(feature, dict) else feature!r}")
+        moment = parse_utc(feature["properties"]["time_utc"])
+        if not any(s <= moment < e for s, e in spans):
+            raise ValueError(f"{rebuild_record}: flash {feature['id']} lies outside the examined slots")
+        found.setdefault(feature["id"], feature)
+    expected_seconds = scanned_seconds_for_day(windows, date.fromisoformat(day))
+
+    disk, _ = _discover_shards(archive_dir, cutoff, now.date())
+    if day in disk:
+        raise ValueError(f"{day}: unlisted shard files exist on disk for a never-searched date; move them aside")
+
+    staging = archive_dir.parent / f".{archive_dir.name}.backfill-{day}"
+    retired = archive_dir.parent / f".{archive_dir.name}.backfill-retired"
+    for leftover in (staging, retired):
+        if leftover.exists():
+            shutil.rmtree(leftover)
+    shutil.copytree(archive_dir, staging)
+    try:
+        result = archive_observations(
+            staging, list(found.values()), now=now, scanned_windows=windows,
+            lookback_hours=index.get("last_run_lookback_hours"),
+            max_shard_bytes=max_shard_bytes, target_shard_bytes=target_shard_bytes)
+        checked = verify_archive(staging)
+        new_row = next(r for r in result["index"]["days"] if r["date"] == day)
+        if new_row["coverage"] == "none" or new_row["scanned_seconds"] != expected_seconds:
+            raise ValueError(f"{day}: archived coverage {new_row['scanned_seconds']} s differs from the rebuild's "
+                             f"examined {expected_seconds} s")
+        if new_row["count"] != len(found):
+            raise ValueError(f"{day}: archived count {new_row['count']} differs from the rebuild's {len(found)} flashes")
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    os.replace(archive_dir, retired)
+    os.replace(staging, archive_dir)
+    shutil.rmtree(retired)
+    index_after = result["index"]
+    return {
+        "outcome": "success", "error": None, "date": day, "row": new_row,
+        "rebuild": {"run_utc": record["run_utc"], "products_examined": record.get("products_examined"),
+                    "slots_examined": record.get("slots_examined"),
+                    "record_sha256": hashlib.sha256(raw).hexdigest()},
+        "unscanned_ranges": record.get("unscanned_ranges") or [],
+        "files_changed": result["files_changed"], "split_days": result["split_days"],
+        "archived_observations": index_after["archived_observations"],
+        "index_generated_utc": index_after["generated_utc"],
+        "last_successful_scan_end_utc": index_after["last_successful_scan_end_utc"],
+        "integrity": result["integrity"], "verify": checked,
+    }
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
+    backfill = sub.add_parser(
+        "backfill", help="Ingest a collect.py --rebuild-day record for a never-searched date (not shard_lost)")
+    backfill.add_argument("--archive-dir", type=Path, default=Path("data/history"))
+    backfill.add_argument("--day", required=True, help="UTC date YYYY-MM-DD marked never searched (count null)")
+    backfill.add_argument("--rebuild-record", type=Path, required=True)
+    backfill.add_argument("--result-out", type=Path, default=None)
+    backfill.add_argument("--now", default=None, help="ISO-8601 UTC override (tests/fixtures)")
+    plan = sub.add_parser("backfill-plan", help="Print never-searched UTC dates, newest first, one per line")
+    plan.add_argument("--archive-dir", type=Path, default=Path("data/history"))
+    plan.add_argument("--end-date", default="", help="Newest UTC date YYYY-MM-DD; empty = yesterday UTC")
+    plan.add_argument("--days", type=int, default=7, help=f"Dates to consider back from end-date (1-{BACKFILL_MAX_DAYS})")
+    plan.add_argument("--now", default=None, help="ISO-8601 UTC override (tests/fixtures)")
     ingest = sub.add_parser("ingest", help="Append a collect.py run record to the archive")
     ingest.add_argument("--archive-dir", type=Path, default=Path("data/history"))
     ingest.add_argument("--run-record", type=Path, required=True)
@@ -1058,6 +1221,25 @@ def main(argv=None):
                          help="Rebuild only: allow a date with no recorded count (audited as anchored=false)")
     recover.add_argument("--now", default=None, help="ISO-8601 UTC override (tests/fixtures)")
     args = parser.parse_args(argv)
+    if args.command == "backfill-plan":
+        now = parse_utc(args.now) if args.now else datetime.now(timezone.utc)
+        today = now.date()
+        end = date.fromisoformat(args.end_date.strip()) if args.end_date.strip() else today - timedelta(days=1)
+        for day in backfill_plan(args.archive_dir, end_date=end, days=args.days, today=today):
+            print(day)
+        return 0
+    if args.command == "backfill":
+        now = parse_utc(args.now) if args.now else datetime.now(timezone.utc)
+        result = backfill_day(args.archive_dir, args.day, now=now, rebuild_record=args.rebuild_record)
+        if args.result_out:
+            args.result_out.parent.mkdir(parents=True, exist_ok=True)
+            args.result_out.write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
+        row = result["row"]
+        print(f"Backfilled {result['date']}: coverage {row['coverage']} ({row['scanned_seconds']} s searched), "
+              f"count {row['count']}, {len(result['unscanned_ranges'])} unsearched gap(s) left unknown; verify ok.")
+        if result["integrity"]["state"] != "ok":
+            print(result["integrity"]["alert"], file=sys.stderr)
+        return 0
     if args.command == "verify":
         checked = verify_archive(args.archive_dir)
         print(json.dumps(checked))

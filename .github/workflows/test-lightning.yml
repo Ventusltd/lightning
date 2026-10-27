@@ -9,6 +9,7 @@ on:
       - "tests/**"
       - ".github/workflows/test-lightning.yml"
       - ".github/workflows/update-lightning.yml"
+      - ".github/workflows/backfill-lightning.yml"
   pull_request:
     paths:
       - "collect.py"
@@ -18,6 +19,7 @@ on:
       - "tests/**"
       - ".github/workflows/test-lightning.yml"
       - ".github/workflows/update-lightning.yml"
+      - ".github/workflows/backfill-lightning.yml"
 
 jobs:
   test:

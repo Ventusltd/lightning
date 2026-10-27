@@ -161,9 +161,70 @@ def build_status(
             "index_generated_utc": (archive_result or {}).get("index_generated_utc"),
         },
         "thresholds_hours": {"warn": STALE_WARN_HOURS, "stale": STALE_HOURS, "stopped": STOPPED_HOURS},
+        "backfill": previous.get("backfill"),
         "note": ("A failed run leaves the feed and archive unchanged. Time not covered by a successful "
                  "scan is unknown, not zero. Flashes are optical satellite detections, not confirmed ground strikes."),
     }
+
+
+BACKFILL_OK = ("completed", "time_budget")
+
+
+def backfill_status(
+    previous: dict | None,
+    *,
+    now: datetime,
+    planned: list[str],
+    filled: list[str],
+    stopped: str,
+    error: str | None,
+    index: dict | None,
+) -> dict:
+    """Record a backfill run WITHOUT touching the hourly heartbeat.
+
+    The heartbeat fields (last attempt, failures, last successful scan end,
+    freshness) belong to the hourly collector: a backfill searches past dates
+    and must not move the lookback anchor. Only the ``backfill`` block, the
+    archive totals and the integrity state are refreshed from the index the
+    backfill committed, so status.json and index.json stay consistent.
+    """
+    status = dict(previous or {"schema": SCHEMA_STATUS})
+    filled_set = set(filled)
+    status["backfill"] = {
+        "last_run_utc": iso_utc(now),
+        "outcome": stopped if stopped in BACKFILL_OK else "stopped",
+        "stopped_reason": stopped,
+        "error": error or None,
+        "planned_days": list(planned),
+        "filled_days": list(filled),
+        "remaining_unknown_days": [d for d in planned if d not in filled_set],
+        "note": ("Backfilled dates carry the examined 10-minute slots of a fresh whole-day EUMETSAT search; "
+                 "dates not filled stay never searched (unknown, not zero)."),
+    }
+    if index:
+        archive = dict(status.get("archive") or {})
+        archive["archived_observations"] = index.get("archived_observations")
+        archive["index_generated_utc"] = index.get("generated_utc")
+        status["archive"] = archive
+        integ = index.get("integrity") or {}
+        lost = sorted(str(e.get("date")) for e in integ.get("lost_days") or [] if isinstance(e, dict))
+        state = "shard_lost" if lost else "ok"
+        status["integrity"] = {
+            "state": state, "alert": integ.get("alert") if lost else None, "lost_days": lost,
+            "quarantined_observations": sum(int(e.get("quarantined_observations") or 0)
+                                            for e in integ.get("lost_days") or [] if isinstance(e, dict)),
+            "source": "backfill",
+        }
+        freshness = status.get("freshness")
+        if freshness is not None:
+            status["health"] = "degraded" if state == "shard_lost" and freshness in ("ok", "warn") else freshness
+    return status
+
+
+def _lines(path: Path | None) -> list[str]:
+    if not path or not Path(path).exists():
+        return []
+    return [line.strip() for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def write_status(path: Path, status: dict) -> None:
@@ -184,7 +245,24 @@ def main(argv=None):
     write.add_argument("--now", default=None)
     alert = sub.add_parser("alert", help="Print the integrity alert and exit 1 while any shard_lost date exists")
     alert.add_argument("--status", type=Path, default=Path("data/status.json"))
+    backfill = sub.add_parser("backfill", help="Record a backfill run; the hourly heartbeat is left untouched")
+    backfill.add_argument("--status", type=Path, default=Path("data/status.json"))
+    backfill.add_argument("--plan", type=Path, required=True, help="Planned dates, one per line (newest first)")
+    backfill.add_argument("--filled", type=Path, required=True, help="Dates actually backfilled, one per line")
+    backfill.add_argument("--stopped", required=True, help="completed | time_budget | eumetsat_error | archive_refused")
+    backfill.add_argument("--error", default="")
+    backfill.add_argument("--archive-dir", type=Path, default=Path("data/history"))
+    backfill.add_argument("--now", default=None)
     args = parser.parse_args(argv)
+    if args.command == "backfill":
+        now = parse_utc(args.now) if args.now else datetime.now(timezone.utc)
+        status = backfill_status(_load(args.status), now=now, planned=_lines(args.plan), filled=_lines(args.filled),
+                                 stopped=args.stopped, error=args.error, index=_load(args.archive_dir / "index.json"))
+        write_status(args.status, status)
+        block = status["backfill"]
+        print(f"backfill: {block['outcome']} filled={len(block['filled_days'])} "
+              f"remaining_unknown={len(block['remaining_unknown_days'])} integrity={status.get('integrity', {}).get('state')}")
+        return 0
     if args.command == "alert":
         current = _load(args.status) or {}
         integrity = current.get("integrity") or {}
