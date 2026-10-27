@@ -1,2 +1,4 @@
 eumdac>=3.0,<5
 netCDF4>=1.7,<2
+duckdb==2.0.0
+pyarrow==26.0.0

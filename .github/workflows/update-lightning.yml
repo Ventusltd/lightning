@@ -109,10 +109,41 @@ jobs:
           git commit -m "data: archive UTC day shards, index v2 and collector status"
           git push || (git pull --rebase origin main && git push)
 
-      # 6. Make a failed collection or archive visible in the Actions UI even
-      #    though the steps above were allowed to continue.
-      - name: Surface collection or archive failure
-        if: always() && (steps.collect.outcome != 'success' || steps.archive.outcome == 'failure')
+      # 6. Parquet mirror of the archive (data/parquet, see docs/PARQUET-DUCKDB.md):
+      #    built only from the verified JSON archive, verified fail-closed, and
+      #    committed separately after the feed and archive commits. A failure here
+      #    never blocks the feed or the archive; it is surfaced in step 7.
+      - name: Build Parquet, coverage, rollups and manifest
+        id: parquet
+        if: always() && steps.archive.outcome == 'success'
+        continue-on-error: true
+        env:
+          LIGHTNING_RUN_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}
+        run: python parquet_store.py build --archive-dir data/history --out data/parquet --if-archive
+
+      - name: Verify the Parquet store (fail closed)
+        id: verify_parquet
+        if: always() && steps.parquet.outcome == 'success'
+        continue-on-error: true
+        run: python verify_parquet.py --archive-dir data/history --out data/parquet --if-archive
+
+      - name: Commit the Parquet store (parquet commit)
+        if: always() && steps.verify_parquet.outcome == 'success'
         run: |
-          echo "::error::collect=${{ steps.collect.outcome }} archive=${{ steps.archive.outcome }} (see data/status.json)"
+          git add -A data/parquet
+          if git diff --cached --quiet; then
+            echo "No changed Parquet store"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: Parquet mirror, coverage and DuckDB rollups of the UTC archive"
+          git push || (git pull --rebase origin main && git push)
+
+      # 7. Make a failed collection, archive or Parquet build visible in the
+      #    Actions UI even though the steps above were allowed to continue.
+      - name: Surface collection or archive failure
+        if: always() && (steps.collect.outcome != 'success' || steps.archive.outcome == 'failure' || steps.parquet.outcome == 'failure' || steps.verify_parquet.outcome == 'failure')
+        run: |
+          echo "::error::collect=${{ steps.collect.outcome }} archive=${{ steps.archive.outcome }} parquet=${{ steps.parquet.outcome }} verify_parquet=${{ steps.verify_parquet.outcome }} (see data/status.json)"
           exit 1
