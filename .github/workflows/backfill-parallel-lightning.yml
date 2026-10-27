@@ -1,0 +1,247 @@
+name: UK lightning archive backfill (parallel)
+# Manual only. The parallel form of backfill-lightning.yml: fills UTC dates the
+# archive index marks NEVER SEARCHED (coverage none / count null, not
+# shard_lost) from fresh whole-day EUMETSAT searches, split over at most six
+# date shards (EUMETSAT fair use). Shards only write run records, uploaded as
+# artifacts; ONE finalize job ingests them all sequentially, verifies and makes
+# ONE commit. Gaps stay unknown, never zero. See docs/HISTORY_ONE_YEAR.md,
+# "Parallel backfill".
+on:
+  workflow_dispatch:
+    inputs:
+      end_date:
+        description: "Newest UTC date to consider (YYYY-MM-DD). Empty = yesterday UTC."
+        default: ""
+        required: false
+      days:
+        description: "UTC dates to consider back from end_date (1-366). Only never-searched dates are searched."
+        default: "90"
+        required: false
+      shards:
+        description: "Parallel date shards (1-6; EUMETSAT fair use cap is 6)."
+        default: "6"
+        required: false
+      dry_run:
+        description: "Only plan the shards: no EUMETSAT calls, no commit."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Its OWN group, never uk-lightning-update: a backfill must never hold the
+# hourly collector in its queue (GitHub keeps one pending run per group, so a
+# shared group can also cancel a pending hourly run). Shards do not touch the
+# repository; only the minutes-long finalize job pushes, after waiting for an
+# active hourly run, and re-ingests on the new main if its push is rejected.
+concurrency:
+  group: uk-lightning-backfill
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      count: ${{ steps.plan.outputs.count }}
+      shards: ${{ steps.plan.outputs.shards }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - name: Test pure-Python data contracts
+        run: python -m unittest discover -s tests -v
+
+      # Refuses days outside 1-366, shards outside 1-6, an end_date that is
+      # today or later, a missing index, and (unless dry_run) any ref but main.
+      - name: Plan never-searched UTC dates and shards
+        id: plan
+        env:
+          END_DATE: ${{ inputs.end_date }}
+          DAYS: ${{ inputs.days }}
+          SHARDS: ${{ inputs.shards }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" != "true" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::A backfill writes the archive and must run on main (got $GITHUB_REF); use dry_run elsewhere."
+            exit 1
+          fi
+          python backfill_parallel.py plan --archive-dir data/history \
+            --end-date "$END_DATE" --days "$DAYS" --shards "$SHARDS" \
+            --plan-out "$RUNNER_TEMP/backfill-plan.txt"
+          mkdir -p "$RUNNER_TEMP/plan-artifact"
+          cp "$RUNNER_TEMP/backfill-plan.txt" "$RUNNER_TEMP/plan-artifact/backfill-plan.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backfill-plan
+          path: ${{ runner.temp }}/plan-artifact
+          retention-days: 7
+
+  shard:
+    needs: plan
+    if: ${{ !inputs.dry_run && needs.plan.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    # About 18.5 min per whole-day search (run 40464739813: 11 dates in 203 min).
+    # No new date starts after SHARD_BUDGET_MINUTES, so a shard ends well inside
+    # the job timeout (GitHub's hosted maximum is 360).
+    timeout-minutes: 340
+    strategy:
+      # An EUMETSAT error fails its shard AFTER its records are uploaded; fail-fast
+      # then cancels the other shards (rate limits are per account), whose
+      # always() upload still keeps every record they finished.
+      fail-fast: true
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      SHARD_BUDGET_MINUTES: "290"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+
+      # Run records only (never the feed, status or archive). Exits 0 for every
+      # stop so the upload below always runs; the stop is surfaced after it.
+      - name: Search this shard's dates (run records only)
+        id: search
+        env:
+          EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
+          EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
+          SHARD: ${{ matrix.shard }}
+          DATES: ${{ matrix.dates }}
+        run: |
+          python backfill_parallel.py shard --shard "$SHARD" --dates "$DATES" \
+            --out-dir "$RUNNER_TEMP/records" --budget-minutes "${SHARD_BUDGET_MINUTES:-290}" \
+            --stagger-step-seconds "${SHARD_STAGGER_STEP_SECONDS:-20}" < /dev/null
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: backfill-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/records
+          include-hidden-files: false
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Surface shard stop
+        if: ${{ always() }}
+        env:
+          STOPPED: ${{ steps.search.outputs.stopped }}
+          ERROR: ${{ steps.search.outputs.error }}
+        run: |
+          case "$STOPPED" in
+            completed) echo "Shard searched all its dates" ;;
+            time_budget) echo "::warning::Shard stopped at its time budget; its remaining dates stay never searched." ;;
+            *)
+              echo "::error::Shard stopped (${STOPPED:-unknown}): $ERROR"
+              exit 1 ;;
+          esac
+
+  finalize:
+    needs: [plan, shard]
+    # always(): records of shards that stopped early (rate limit, fail-fast
+    # cancel, time budget) are still ingested; their missing dates stay unknown.
+    if: ${{ always() && !inputs.dry_run && needs.plan.result == 'success' && needs.plan.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: backfill-plan
+          path: ${{ runner.temp }}/plan
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: backfill-shard-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/records
+
+      # Ingest every record sequentially on the newest main, verify, ONE commit.
+      # If the push is rejected (the hourly job committed meanwhile), reset to
+      # the new main and re-ingest from the same records: never a rebase merge
+      # of index.json. Dates without a verified record stay never searched.
+      - name: Ingest, verify and commit (one commit)
+        id: finalize
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHARDS: ${{ needs.plan.outputs.shards }}
+          HOURLY_WAIT_MINUTES: "20"
+          PUSH_ATTEMPTS: "5"
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::A backfill writes the archive and must run on main (got $GITHUB_REF)."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          pushed=no
+          attempt=0
+          while [ "$attempt" -lt "${PUSH_ATTEMPTS:-5}" ]; do
+            attempt=$((attempt + 1))
+            python backfill_parallel.py wait-hourly --repo "${GITHUB_REPOSITORY:-}" --gh "${GH_BIN:-gh}" \
+              --max-minutes "${HOURLY_WAIT_MINUTES:-20}" --poll-seconds "${HOURLY_POLL_SECONDS:-30}" || true
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            git clean -fdq -- data
+            : > "$GITHUB_OUTPUT.attempt"
+            GITHUB_OUTPUT="$GITHUB_OUTPUT.attempt" python backfill_parallel.py finalize \
+              --plan "$RUNNER_TEMP/plan/backfill-plan.txt" --shards "$SHARDS" \
+              --records-dir "$RUNNER_TEMP/records" --archive-dir data/history --status data/status.json \
+              --filled-out "$RUNNER_TEMP/backfill-filled.txt" < /dev/null
+            # Nothing unverified is committed.
+            python history.py verify --archive-dir data/history
+            git add -A -- data/status.json data/history
+            if git diff --cached --quiet; then
+              echo "No backfilled dates or status change to commit"
+              pushed=nothing
+              break
+            fi
+            stopped=$(sed -n 's/^stopped=//p' "$GITHUB_OUTPUT.attempt")
+            filled=$(grep -c . "$RUNNER_TEMP/backfill-filled.txt" || true)
+            range=$(paste -sd, "$RUNNER_TEMP/backfill-filled.txt")
+            git commit -q -m "data: parallel backfill of ${filled} never-searched UTC day(s) of the one-year archive" \
+                       -m "Dates: ${range:-none}. Shards: ${SHARDS}. Stopped: ${stopped}."
+            if git push -q origin HEAD:main; then
+              pushed=yes
+              break
+            fi
+            echo "::notice::Push attempt $attempt rejected (main moved); re-ingesting on the new main."
+          done
+          cat "$GITHUB_OUTPUT.attempt" >> "$GITHUB_OUTPUT"
+          echo "pushed=$pushed" >> "$GITHUB_OUTPUT"
+          if [ "$pushed" = "no" ]; then
+            echo "::error::Backfill commit not pushed after $attempt attempts; the records stay in the artifacts for 7 days."
+            exit 1
+          fi
+
+      # An EUMETSAT error, an archive refusal, a cancelled or missing shard turns
+      # the run red AFTER the verified dates were committed; a time-budget stop warns.
+      - name: Surface backfill stop
+        if: ${{ always() }}
+        env:
+          STOPPED: ${{ steps.finalize.outputs.stopped }}
+          ERROR: ${{ steps.finalize.outputs.error }}
+          OUTCOME: ${{ steps.finalize.outcome }}
+        run: |
+          case "$STOPPED" in
+            completed) echo "Parallel backfill completed" ;;
+            time_budget) echo "::warning::Backfill stopped at the time budget; remaining dates stay never searched. Run again." ;;
+            *)
+              echo "::error::Backfill stopped (${STOPPED:-step $OUTCOME}): $ERROR. Remaining dates stay never searched (unknown, not zero)."
+              exit 1 ;;
+          esac

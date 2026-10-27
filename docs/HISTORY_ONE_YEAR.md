@@ -230,6 +230,51 @@ workflow does not depend on it: a date with no returned product fails `--rebuild
 stops the run with the date left unknown. A `dry_run`, then a one-day run (`days: 1`) on an old
 `end_date`, is the cheapest empirical check.
 
+### Parallel backfill (manual workflow)
+
+One whole-day `--rebuild-day` search takes about **18.5 minutes** (run 40464739813: 11 dates in
+203 minutes), so the sequential workflow fills about 10 dates per run. The rest of the year is
+about 337 dates, which would take about 34 more runs. `.github/workflows/backfill-parallel-lightning.yml` splits the same work. It is
+**`workflow_dispatch` only**, with the inputs `end_date`, `days` (**1–366**, default 90), `shards` (**1–6**, default 6) and
+`dry_run`. The steps run through `backfill_parallel.py` and use the same gates as above:
+
+1. **plan** job: `backfill_parallel.py plan` lists the never-searched dates
+   (`history.backfill_plan`, newest first, `shard_lost` excluded) and deals them **round-robin**
+   into at most six shards, each newest first. Writing runs are refused outside `main`.
+2. **shard** matrix (`max-parallel: 6`, the EUMETSAT fair-use cap). Each shard runs
+   `collect.py --rebuild-day D` for each of its dates and writes **only run records**, never the
+   feed, the status or the archive. A record is moved into place only after `collect.py`
+   succeeds, so a killed search leaves no partial record. A `shard-K.json` summary (dates,
+   collected records with their sha256, stop reason) is rewritten after every date. Each shard
+   waits 20 s × (K − 1) before its first search. No new date starts after
+   `SHARD_BUDGET_MINUTES` (290), inside the 340-minute job timeout. The records are uploaded as
+   the artifact `backfill-shard-K` (`if: always()`, 7 days).
+3. **Stop cleanly.** The first EUMETSAT error in a shard (HTTP 429, outage, no products) stops
+   that shard, which uploads its records and then fails. `fail-fast` then cancels the other
+   shards. A cancelled shard writes `cancelled`, deletes its partial record and still uploads
+   what it finished.
+4. **finalize** job (`if: always()`, the only job with `contents: write`). It downloads all the
+   artifacts, waits (at most 20 min, best effort) while an `update-lightning.yml` run is active,
+   resets to the newest `origin/main` and ingests the records **sequentially**, newest first,
+   with `history.backfill_day`. A record whose sha256 differs from its shard summary is refused.
+   A date that is no longer never searched is skipped, not refused, so the step is idempotent.
+   The first refusal stops the ingest. Then `status.py`'s `backfill` block is written with
+   `mode: parallel`, `shards` and `skipped_already_searched_days`, the hourly heartbeat is left
+   untouched, `history.py verify` runs and the job makes **one commit**. If the push is rejected
+   because the hourly job committed meanwhile, the job resets to the new main and re-ingests
+   from the same records, up to 5 attempts. It never rebases `index.json`.
+5. **Surface.** `eumetsat_error`, `archive_refused`, `cancelled` or `shard_missing` turns the
+   run red after the commit. `time_budget` only warns. Dates without a verified record stay
+   never searched (unknown, not zero).
+
+**Concurrency.** The workflow has its own group, `uk-lightning-backfill`, and never uses
+`uk-lightning-update`, so the hourly collector is never queued behind it, and a pending hourly
+run can never be replaced by a pending backfill run, or the reverse. Only the finalize job
+pushes, and it takes seconds. Expected throughput is about 3.2 dates per shard-hour: about
+**19 dates per wall-clock hour with 6 shards**, about 90 dates per run, and about 4 runs for
+the rest of the year. This assumes EUMETSAT serves six parallel searches as fast as one, which
+is not yet measured. Start with `days: 30`, `shards: 3`.
+
 ### Day shard (`uk-lightning-history-day.v1`)
 
 Unchanged feature shape from `collect.build_feature` (526 bytes per flash: product-name id,

@@ -76,6 +76,8 @@ QUARANTINE_NOTE = (
     "(the date stays unknown) until a verified recovery merges them (history.py recover)."
 )
 BACKFILL_MAX_DAYS = 31  # dates considered per backfill run (workflow input ``days``)
+# The parallel backfill (backfill_parallel.py) may plan the whole retention year at once.
+BACKFILL_PARALLEL_MAX_DAYS = 366
 DAY_PATTERN = re.compile(r"^days/(\d{4})/(\d{2})/(\d{2})\.json$")
 PART_PATTERN = re.compile(r"^days/(\d{4})/(\d{2})/(\d{2})/(\d{2})\.json$")
 
@@ -1039,15 +1041,16 @@ def _never_searched(row: dict | None, lost: set[str]) -> bool:
             and not row.get("shard_lost") and row.get("date") not in lost)
 
 
-def backfill_plan(archive_dir: Path, *, end_date: date, days: int, today: date) -> list[str]:
+def backfill_plan(archive_dir: Path, *, end_date: date, days: int, today: date,
+                  max_days: int = BACKFILL_MAX_DAYS) -> list[str]:
     """UTC dates in ``[end_date - days + 1, end_date]``, newest first, that the index
     marks never searched (coverage none / count null and not shard_lost).
 
     shard_lost dates are excluded: they need ``recover``, never a backfill. Dates
     before the retention cutoff or missing from the index are not listed.
     """
-    if not 1 <= days <= BACKFILL_MAX_DAYS:
-        raise ValueError(f"days must be 1..{BACKFILL_MAX_DAYS}")
+    if not 1 <= days <= max_days:
+        raise ValueError(f"days must be 1..{max_days}")
     if end_date >= today:
         raise ValueError(f"end_date {end_date} must be a complete past UTC date (before {today})")
     index = _load_old_index(Path(archive_dir) / "index.json")
