@@ -8,7 +8,7 @@
   "alert": null,
   "lost_days": [],
   "quarantined_observations": 0,
-  "source": "this_run"
+  "source": "backfill"
  },
  "last_attempt_utc": "2026-10-27T15:20:03.957Z",
  "last_attempt_outcome": "success",
@@ -80,13 +80,13 @@
  "archive": {
   "outcome": "success",
   "error": null,
-  "archived_observations": 1507,
+  "archived_observations": 3047,
   "files_changed": 2,
   "dropped_before_cutoff": 0,
   "split_days": [],
   "lost_days": [],
   "dropped_lost_day": 0,
-  "index_generated_utc": "2026-10-27T15:24:21.999Z"
+  "index_generated_utc": "2026-10-27T17:26:36.180Z"
  },
  "thresholds_hours": {
   "warn": 6,
@@ -94,22 +94,11 @@
   "stopped": 24
  },
  "backfill": {
-  "last_run_utc": "2026-10-27T10:26:14.767Z",
-  "outcome": "time_budget",
-  "stopped_reason": "time_budget",
-  "error": null,
+  "last_run_utc": "2026-10-27T17:26:36.180Z",
+  "outcome": "stopped",
+  "stopped_reason": "eumetsat_error",
+  "error": "shard 2 2026-09-18: ValueError: W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+LI-2-LFL--FD-PART-x-x--ARC-x_C_EUMT_20260918003140_L2PF_OPE_20260918002945_20260918003005_N__O_0003_0000: ZIP contained no BODY NetCDF",
   "planned_days": [
-   "2026-10-09",
-   "2026-10-08",
-   "2026-10-07",
-   "2026-10-06",
-   "2026-10-05",
-   "2026-10-04",
-   "2026-10-03",
-   "2026-10-02",
-   "2026-10-01",
-   "2026-09-30",
-   "2026-09-29",
    "2026-09-28",
    "2026-09-27",
    "2026-09-26",
@@ -129,31 +118,30 @@
    "2026-09-12",
    "2026-09-11",
    "2026-09-10",
-   "2026-09-09"
+   "2026-09-09",
+   "2026-09-08",
+   "2026-09-07",
+   "2026-09-06",
+   "2026-09-05",
+   "2026-09-04",
+   "2026-09-03",
+   "2026-09-02",
+   "2026-09-01",
+   "2026-08-31",
+   "2026-08-30"
   ],
   "filled_days": [
-   "2026-10-09",
-   "2026-10-08",
-   "2026-10-07",
-   "2026-10-06",
-   "2026-10-05",
-   "2026-10-04",
-   "2026-10-03",
-   "2026-10-02",
-   "2026-10-01",
-   "2026-09-30",
-   "2026-09-29"
-  ],
-  "remaining_unknown_days": [
    "2026-09-28",
    "2026-09-27",
    "2026-09-26",
    "2026-09-25",
    "2026-09-24",
    "2026-09-23",
-   "2026-09-22",
    "2026-09-21",
-   "2026-09-20",
+   "2026-09-20"
+  ],
+  "remaining_unknown_days": [
+   "2026-09-22",
    "2026-09-19",
    "2026-09-18",
    "2026-09-17",
@@ -164,9 +152,22 @@
    "2026-09-12",
    "2026-09-11",
    "2026-09-10",
-   "2026-09-09"
+   "2026-09-09",
+   "2026-09-08",
+   "2026-09-07",
+   "2026-09-06",
+   "2026-09-05",
+   "2026-09-04",
+   "2026-09-03",
+   "2026-09-02",
+   "2026-09-01",
+   "2026-08-31",
+   "2026-08-30"
   ],
-  "note": "Backfilled dates carry the examined 10-minute slots of a fresh whole-day EUMETSAT search; dates not filled stay never searched (unknown, not zero)."
+  "note": "Backfilled dates carry the examined 10-minute slots of a fresh whole-day EUMETSAT search; dates not filled stay never searched (unknown, not zero).",
+  "mode": "parallel",
+  "shards": 3,
+  "skipped_already_searched_days": []
  },
  "note": "A failed run leaves the feed and archive unchanged. Time not covered by a successful scan is unknown, not zero. Flashes are optical satellite detections, not confirmed ground strikes."
 }
