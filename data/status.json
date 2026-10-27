@@ -8,7 +8,7 @@
   "alert": null,
   "lost_days": [],
   "quarantined_observations": 0,
-  "source": "this_run"
+  "source": "backfill"
  },
  "last_attempt_utc": "2026-10-27T18:31:26.726Z",
  "last_attempt_outcome": "success",
@@ -82,13 +82,13 @@
  "archive": {
   "outcome": "success",
   "error": null,
-  "archived_observations": 3050,
+  "archived_observations": 3057,
   "files_changed": 1,
   "dropped_before_cutoff": 0,
   "split_days": [],
   "lost_days": [],
   "dropped_lost_day": 0,
-  "index_generated_utc": "2026-10-27T18:34:32.390Z"
+  "index_generated_utc": "2026-10-27T18:35:17.068Z"
  },
  "thresholds_hours": {
   "warn": 6,
@@ -124,20 +124,12 @@
   "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 27 Oct 18:31 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
  },
  "backfill": {
-  "last_run_utc": "2026-10-27T17:26:36.180Z",
+  "last_run_utc": "2026-10-27T18:35:17.068Z",
   "outcome": "stopped",
   "stopped_reason": "eumetsat_error",
-  "error": "shard 2 2026-09-18: ValueError: W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+LI-2-LFL--FD-PART-x-x--ARC-x_C_EUMT_20260918003140_L2PF_OPE_20260918002945_20260918003005_N__O_0003_0000: ZIP contained no BODY NetCDF",
+  "error": "shard 2 2026-09-16: urllib3.exceptions.ProtocolError: ('Connection broken: IncompleteRead(4955 bytes read, 233290 more expected)', IncompleteRead(4955 bytes read, 233290 more expected))",
   "planned_days": [
-   "2026-09-28",
-   "2026-09-27",
-   "2026-09-26",
-   "2026-09-25",
-   "2026-09-24",
-   "2026-09-23",
    "2026-09-22",
-   "2026-09-21",
-   "2026-09-20",
    "2026-09-19",
    "2026-09-18",
    "2026-09-17",
@@ -158,22 +150,21 @@
    "2026-09-02",
    "2026-09-01",
    "2026-08-31",
-   "2026-08-30"
+   "2026-08-30",
+   "2026-08-29",
+   "2026-08-28",
+   "2026-08-27",
+   "2026-08-26",
+   "2026-08-25",
+   "2026-08-24",
+   "2026-08-23"
   ],
   "filled_days": [
-   "2026-09-28",
-   "2026-09-27",
-   "2026-09-26",
-   "2026-09-25",
-   "2026-09-24",
-   "2026-09-23",
-   "2026-09-21",
-   "2026-09-20"
-  ],
-  "remaining_unknown_days": [
    "2026-09-22",
    "2026-09-19",
-   "2026-09-18",
+   "2026-09-18"
+  ],
+  "remaining_unknown_days": [
    "2026-09-17",
    "2026-09-16",
    "2026-09-15",
@@ -192,8 +183,20 @@
    "2026-09-02",
    "2026-09-01",
    "2026-08-31",
-   "2026-08-30"
+   "2026-08-30",
+   "2026-08-29",
+   "2026-08-28",
+   "2026-08-27",
+   "2026-08-26",
+   "2026-08-25",
+   "2026-08-24",
+   "2026-08-23"
   ],
+  "unparsed_products": 2,
+  "unparsed_products_by_day": {
+   "2026-09-19": 1,
+   "2026-09-18": 1
+  },
   "note": "Backfilled dates carry the examined 10-minute slots of a fresh whole-day EUMETSAT search; dates not filled stay never searched (unknown, not zero).",
   "mode": "parallel",
   "shards": 3,
