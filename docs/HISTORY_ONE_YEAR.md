@@ -41,7 +41,13 @@ history-window.mjs, tests and this file were the starting point.
    (`collect.scanned_ranges`). The slot containing `now` is normally not yet published, so the
    tail of every query window is unobserved and recorded as `tail_unobserved_seconds`; a missing
    slot in the middle is a source gap (`unscanned_ranges`). Zero products returned is a failure,
-   not an empty sky.
+   not an empty sky. An **unreadable product** (ZIP without a BODY NetCDF, corrupt ZIP or
+   NetCDF) is an *unparsed* slot: not examined, so not searched time; the day becomes partial
+   with that slot unknown (never zero) and the run carries on. Its id and reason are in the run
+   record (`unparsed_products`, `products_unparsed`, `unparsed_slots_utc`) and the count in
+   `data/status.json` (`last_products_unparsed`; `backfill.unparsed_products`). Network, auth,
+   rate-limit and timeout errors still stop the run, as does a UTC date with more than 20 % of
+   its slots in the query window unparsed (`collect.TooManyUnparsed`; that date stays unknown).
 3. Writes the **feed first** (`data/uk_lightning.geojson`, 7-day retention, 40 000 display cap,
    byte-compatible with the previous feed plus additive metadata: `slots_examined`,
    `scan_end_utc`, `published_at_utc`, `first/last_detection_utc`, `coverage_note`).

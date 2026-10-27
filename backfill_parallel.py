@@ -11,7 +11,9 @@ EUMETSAT search takes about 18.5 minutes). This splits the work:
                  dates, newest first. It writes ONLY run records (never the feed,
                  status or archive) plus a ``shard-K.json`` summary, both uploaded
                  as an artifact. The first EUMETSAT error (rate limit, outage, no
-                 products) stops the shard; later dates are never attempted.
+                 products, a date with too many unreadable products) stops
+                 the shard; later dates are never attempted. One unreadable
+                 product only leaves its 10-minute slot unknown.
 3. ``finalize``  one job: ingests every record sequentially with the gated
                  ``history.backfill_day`` (staging copy, verify), writes the
                  ``backfill`` status block and leaves one commit to the workflow.
@@ -209,6 +211,7 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
             listed[item["date"]] = item
 
     filled, skipped = [], []
+    unparsed_by_day: dict[str, int] = {}
     refused = None
     for day in plan_dates:
         item = listed.get(day)
@@ -230,8 +233,12 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
             refused = f"{day}: {exc}"
             break
         row = result["row"]
+        unparsed = int(json.loads(record.read_text(encoding="utf-8")).get("products_unparsed") or 0)
+        if unparsed:
+            unparsed_by_day[day] = unparsed
         print(f"Backfilled {day}: coverage {row['coverage']} ({row['scanned_seconds']} s searched), count {row['count']}, "
-              f"{len(result['unscanned_ranges'])} unsearched gap(s) left unknown.", file=sys.stderr)
+              f"{len(result['unscanned_ranges'])} unsearched gap(s) left unknown, {unparsed} unparsed product(s).",
+              file=sys.stderr)
         filled.append(day)
     if refused:
         stops.append("archive_refused")
@@ -241,7 +248,8 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
     checked = history.verify_archive(archive_dir)
     index = json.loads((archive_dir / "index.json").read_text(encoding="utf-8"))
     new_status = status_mod.backfill_status(status_mod._load(status_path), now=now, planned=plan_dates,
-                                            filled=filled, stopped=stopped, error=error, index=index)
+                                            filled=filled, stopped=stopped, error=error, index=index,
+                                            unparsed_by_day=unparsed_by_day)
     new_status["backfill"].update(mode="parallel", shards=len(expected), skipped_already_searched_days=skipped)
     status_mod.write_status(status_path, new_status)
     return {"stopped": stopped, "error": error, "filled": filled, "skipped": skipped,

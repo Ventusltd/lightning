@@ -333,6 +333,9 @@ def build_status(
         "last_products_examined": (record or {}).get("products_examined"),
         "last_slots_examined": (record or {}).get("slots_examined"),
         "last_slots_parsed": (record or {}).get("slots_parsed"),
+        # Unreadable products: their slots are not searched time (unknown, not zero).
+        "last_products_unparsed": (record or {}).get("products_unparsed"),
+        "last_unparsed_products": (record or {}).get("unparsed_products"),
         "last_slots_examined_utc": (record or {}).get("slots_examined_utc") if collected else None,
         "last_scanned_ranges": (record or {}).get("scanned_ranges") if collected else None,
         "last_unscanned_ranges": (record or {}).get("unscanned_ranges") if collected else None,
@@ -374,6 +377,7 @@ def backfill_status(
     stopped: str,
     error: str | None,
     index: dict | None,
+    unparsed_by_day: dict | None = None,
 ) -> dict:
     """Record a backfill run WITHOUT touching the hourly heartbeat.
 
@@ -393,6 +397,9 @@ def backfill_status(
         "planned_days": list(planned),
         "filled_days": list(filled),
         "remaining_unknown_days": [d for d in planned if d not in filled_set],
+        # Unreadable products in the filled dates' searches; their slots stay unknown.
+        "unparsed_products": sum(unparsed_by_day.values()) if unparsed_by_day is not None else None,
+        "unparsed_products_by_day": dict(unparsed_by_day) if unparsed_by_day is not None else None,
         "note": ("Backfilled dates carry the examined 10-minute slots of a fresh whole-day EUMETSAT search; "
                  "dates not filled stay never searched (unknown, not zero)."),
     }
