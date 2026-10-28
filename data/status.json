@@ -102,7 +102,7 @@
  "archive": {
   "outcome": "success",
   "error": null,
-  "archived_observations": 364980,
+  "archived_observations": 365012,
   "files_changed": 1,
   "dropped_before_cutoff": 0,
   "split_days": [
@@ -114,7 +114,7 @@
   ],
   "lost_days": [],
   "dropped_lost_day": 0,
-  "index_generated_utc": "2026-10-28T13:34:46.613Z"
+  "index_generated_utc": "2026-10-28T15:08:03.735Z"
  },
  "thresholds_hours": {
   "warn": 6,
@@ -150,10 +150,10 @@
   "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 28 Oct 13:32 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
  },
  "backfill": {
-  "last_run_utc": "2026-10-28T13:46:31.936Z",
-  "outcome": "stopped",
-  "stopped_reason": "eumetsat_error",
-  "error": "shard 1 2026-03-08: NameError: name 'random' is not defined. Did you forget to import 'random'?; shard 2 2026-03-06: NameError: name 'random' is not defined. Did you forget to import 'random'?; shard 3 2026-03-05: NameError: name 'random' is not defined. Did you forget to import 'random'?; shard 4 2026-03-02: NameError: name 'random' is not defined. Did you forget to import 'random'?",
+  "last_run_utc": "2026-10-28T15:08:03.735Z",
+  "outcome": "completed",
+  "stopped_reason": "completed",
+  "error": null,
   "planned_days": [
    "2026-03-08",
    "2026-03-06",
@@ -166,8 +166,7 @@
    "2026-02-25",
    "2026-02-24"
   ],
-  "filled_days": [],
-  "remaining_unknown_days": [
+  "filled_days": [
    "2026-03-08",
    "2026-03-06",
    "2026-03-05",
@@ -179,6 +178,7 @@
    "2026-02-25",
    "2026-02-24"
   ],
+  "remaining_unknown_days": [],
   "unparsed_products": 0,
   "unparsed_products_by_day": {},
   "download_retries": 0,
