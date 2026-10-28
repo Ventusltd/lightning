@@ -14,6 +14,8 @@ on:
       - ".github/workflows/update-lightning.yml"
       - ".github/workflows/backfill-lightning.yml"
       - ".github/workflows/backfill-parallel-lightning.yml"
+      - ".github/workflows/verify-lightning-data.yml"
+      - "requirements.txt"
   pull_request:
     paths:
       - "collect.py"
@@ -28,18 +30,50 @@ on:
       - ".github/workflows/update-lightning.yml"
       - ".github/workflows/backfill-lightning.yml"
       - ".github/workflows/backfill-parallel-lightning.yml"
+      - ".github/workflows/verify-lightning-data.yml"
+      - "requirements.txt"
 
 jobs:
   test:
+    # Two legs (28 Oct 2026): "requirements" is the environment production runs
+    # (update/backfill jobs pip install -r requirements.txt); before this leg CI
+    # had no requests/eumdac/netCDF4, so tests had to inject every dependency and
+    # the default-argument NameError of PR #15 (backfill run 40699133665) passed.
+    # "bare" keeps the pure-Python contracts runnable without the packages.
+    name: test (${{ matrix.deps }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        deps: [requirements, bare]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m unittest discover -s tests -v
+          cache: "pip"
+      - name: Install requirements.txt
+        if: matrix.deps == 'requirements'
+        run: pip install -r requirements.txt
+      - name: Static check (undefined names, the class of the PR #15 NameError)
+        run: |
+          pip install pyflakes==3.2.0
+          python -m pyflakes *.py ci/*.py tests/*.py > "$RUNNER_TEMP/pyflakes.txt" || true
+          cat "$RUNNER_TEMP/pyflakes.txt"
+          if grep -E "undefined name|referenced before assignment|unable to detect undefined names" "$RUNNER_TEMP/pyflakes.txt"; then
+            echo "::error::pyflakes found an undefined name"
+            exit 1
+          fi
+      - name: Test pure-Python data contracts and the default-path smoke test
+        env:
+          # The full-pipeline smoke test may not skip on the requirements leg.
+          LIGHTNING_SMOKE_REQUIRE_DEPS: ${{ matrix.deps == 'requirements' && '1' || '0' }}
+        run: python -m unittest discover -s tests -v
       - uses: actions/setup-node@v4
+        if: matrix.deps == 'requirements'
         with:
           node-version: "24"
       - name: Test archive date-window loader (Node)
+        if: matrix.deps == 'requirements'
         run: node --test tests/test_history_window.mjs

@@ -132,6 +132,8 @@ jobs:
         env:
           STOPPED: ${{ steps.backfill.outputs.stopped }}
           ERROR: ${{ steps.backfill.outputs.error }}
+          # Quick verify of the staged data before every push attempt (also after a replay).
+          PUSH_VERIFY: python ci/verify_data.py --staged
         run: |
           python history.py verify --archive-dir data/history
           filled=$(grep -c . "$RUNNER_TEMP/backfill-filled.txt" || true)

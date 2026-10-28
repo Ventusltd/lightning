@@ -224,6 +224,9 @@ jobs:
               pushed=nothing
               break
             fi
+            # The same quick verify the hourly and sequential backfill commits
+            # run before pushing (feed/status/archive parts that are staged).
+            python ci/verify_data.py --staged
             stopped=$(sed -n 's/^stopped=//p' "$GITHUB_OUTPUT.attempt")
             filled=$(grep -c . "$RUNNER_TEMP/backfill-filled.txt" || true)
             range=$(paste -sd, "$RUNNER_TEMP/backfill-filled.txt")

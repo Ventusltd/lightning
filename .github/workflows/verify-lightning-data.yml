@@ -1,0 +1,52 @@
+name: Verify UK lightning data on main
+# Deep check of the COMMITTED data on main: index rows vs shard bytes, sha256
+# and counts (history.py verify), every month grid recounted from its shards
+# (grid.py verify --deep), and the feed/status JSON (ci/verify_data.py).
+#
+# Triggers. The hourly and backfill workflows push with GITHUB_TOKEN, and
+# GitHub starts NO workflow for a GITHUB_TOKEN push, so `push: data/**` alone
+# would only ever see human pushes. `workflow_run` (completion of the three
+# data-writing workflows, on main) covers every bot data commit; it runs this
+# file from main and checks out the newest main. The writers themselves run
+# the quick check (ci/verify_data.py --staged) before every push.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/**"
+  workflow_run:
+    workflows:
+      - "UK lightning optical flashes"
+      - "UK lightning archive backfill"
+      - "UK lightning archive backfill (parallel)"
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Its own group (never uk-lightning-update / uk-lightning-backfill): a newer
+# data commit supersedes a queued check of an older one.
+concurrency:
+  group: uk-lightning-data-verify
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The newest main, not the SHA the triggering run started from.
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Index and shard integrity (history.py verify)
+        run: python history.py verify --archive-dir data/history
+      - name: Month grids recounted from the shards (grid.py verify --deep)
+        run: python grid.py verify --deep --archive-dir data/history
+      - name: Feed, status, archive and grids (ci/verify_data.py --deep)
+        run: python ci/verify_data.py --deep

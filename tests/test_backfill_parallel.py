@@ -406,6 +406,7 @@ class ParallelWorkflowShellTests(unittest.TestCase):
         source = source.replace('\nif __name__ == "__main__":', FAKE_DOWNLOAD + '\nif __name__ == "__main__":')
         (self.repo / "collect.py").write_text(source)
         (self.repo / ".gitignore").write_text("__pycache__/\n")
+        shutil.copytree(ROOT / "ci", self.repo / "ci")  # finalize runs ci/verify_data.py --staged
         now = datetime.now(timezone.utc)
         self.today = now.date()
         self.days = [(self.today - timedelta(days=n)).isoformat() for n in range(1, 9)]  # d1 newest .. d8
