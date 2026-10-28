@@ -8,7 +8,7 @@
   "alert": null,
   "lost_days": [],
   "quarantined_observations": 0,
-  "source": "this_run"
+  "source": "backfill"
  },
  "last_attempt_utc": "2026-10-28T00:30:01.779Z",
  "last_attempt_outcome": "success",
@@ -93,7 +93,7 @@
  "archive": {
   "outcome": "success",
   "error": null,
-  "archived_observations": 38218,
+  "archived_observations": 38874,
   "files_changed": 1,
   "dropped_before_cutoff": 0,
   "split_days": [
@@ -101,7 +101,7 @@
   ],
   "lost_days": [],
   "dropped_lost_day": 0,
-  "index_generated_utc": "2026-10-28T00:32:24.374Z"
+  "index_generated_utc": "2026-10-28T00:58:53.845Z"
  },
  "thresholds_hours": {
   "warn": 6,
@@ -137,73 +137,40 @@
   "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 28 Oct 00:30 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
  },
  "backfill": {
-  "last_run_utc": "2026-10-28T00:19:47.196Z",
+  "last_run_utc": "2026-10-28T00:58:53.845Z",
   "outcome": "stopped",
-  "stopped_reason": "cancelled",
-  "error": null,
+  "stopped_reason": "archive_refused",
+  "error": "2026-08-28: /home/runner/work/_temp/records/rb-2026-08-28.json: flash W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+LI-2-LFL--FD--x-x--ARC-x_C_EUMT_20260828001513_L2PF_OPE_20260828000049_20260828001009_N__O_0001_0000:203 lies outside the examined slots",
   "planned_days": [
-   "2026-09-17",
-   "2026-09-16",
-   "2026-09-15",
-   "2026-09-14",
-   "2026-09-13",
-   "2026-09-12",
-   "2026-09-11",
-   "2026-09-10",
    "2026-09-09",
-   "2026-09-08",
-   "2026-09-07",
    "2026-09-06",
-   "2026-09-05",
-   "2026-09-04",
    "2026-09-03",
-   "2026-09-02",
-   "2026-09-01",
    "2026-08-31",
-   "2026-08-30",
-   "2026-08-29",
    "2026-08-28",
-   "2026-08-27",
-   "2026-08-26",
    "2026-08-25",
-   "2026-08-24",
-   "2026-08-23"
+   "2026-08-22",
+   "2026-08-21",
+   "2026-08-20",
+   "2026-08-19",
+   "2026-08-18"
   ],
   "filled_days": [
-   "2026-09-17",
-   "2026-09-16",
-   "2026-09-15",
-   "2026-09-14",
-   "2026-09-13",
-   "2026-09-12",
-   "2026-09-11",
-   "2026-09-10",
-   "2026-09-08",
-   "2026-09-07",
-   "2026-09-05",
-   "2026-09-04",
-   "2026-09-02",
-   "2026-09-01",
-   "2026-08-30",
-   "2026-08-29",
-   "2026-08-27",
-   "2026-08-26",
-   "2026-08-24",
-   "2026-08-23"
-  ],
-  "remaining_unknown_days": [
    "2026-09-09",
    "2026-09-06",
    "2026-09-03",
-   "2026-08-31",
-   "2026-08-28",
-   "2026-08-25"
+   "2026-08-31"
   ],
-  "unparsed_products": 2,
-  "unparsed_products_by_day": {
-   "2026-08-30": 1,
-   "2026-08-27": 1
-  },
+  "remaining_unknown_days": [
+   "2026-08-28",
+   "2026-08-25",
+   "2026-08-22",
+   "2026-08-21",
+   "2026-08-20",
+   "2026-08-19",
+   "2026-08-18"
+  ],
+  "unparsed_products": 0,
+  "unparsed_products_by_day": {},
   "download_retries": 0,
   "download_retries_by_day": {},
   "note": "Backfilled dates carry the examined 10-minute slots of a fresh whole-day EUMETSAT search; dates not filled stay never searched (unknown, not zero).",
