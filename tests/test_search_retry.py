@@ -1,5 +1,6 @@
 """The EUMETSAT search (and its paging) is retried on transient errors (run 40690260149)."""
 import unittest
+import unittest.mock
 
 import collect
 
@@ -69,3 +70,18 @@ class SearchRetryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SearchRetryDefaultsTests(unittest.TestCase):
+    def test_default_rng_and_sleep_work_without_injection(self):
+        """Run 40699133665 died with NameError: random was not imported at module level."""
+        calls = []
+
+        def run_search():
+            calls.append(1)
+            if len(calls) == 1:
+                raise ReadTimeout("once")
+            return ["p"]
+
+        with unittest.mock.patch.object(collect, "_sleep", lambda s: None):
+            self.assertEqual(collect.search_with_retries(run_search), ["p"])
