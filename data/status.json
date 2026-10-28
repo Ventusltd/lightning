@@ -8,7 +8,7 @@
   "alert": null,
   "lost_days": [],
   "quarantined_observations": 0,
-  "source": "this_run"
+  "source": "backfill"
  },
  "last_attempt_utc": "2026-10-28T13:32:39.366Z",
  "last_attempt_outcome": "success",
@@ -150,10 +150,10 @@
   "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 28 Oct 13:32 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
  },
  "backfill": {
-  "last_run_utc": "2026-10-28T12:49:07.316Z",
+  "last_run_utc": "2026-10-28T13:46:31.936Z",
   "outcome": "stopped",
   "stopped_reason": "eumetsat_error",
-  "error": "shard 5 2026-03-01: requests.exceptions.ConnectionError: HTTPSConnectionPool(host='api.eumetsat.int', port=443): Read timed out.",
+  "error": "shard 1 2026-03-08: NameError: name 'random' is not defined. Did you forget to import 'random'?; shard 2 2026-03-06: NameError: name 'random' is not defined. Did you forget to import 'random'?; shard 3 2026-03-05: NameError: name 'random' is not defined. Did you forget to import 'random'?; shard 4 2026-03-02: NameError: name 'random' is not defined. Did you forget to import 'random'?",
   "planned_days": [
    "2026-03-08",
    "2026-03-06",
