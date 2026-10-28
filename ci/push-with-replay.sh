@@ -14,7 +14,10 @@
 # pushes again, up to $PUSH_ATTEMPTS times (default 5).
 #
 # Optional: PUSH_BODY (second -m paragraph), PUSH_RETRY_SLEEP (seconds, default
-# 5; multiplied by the attempt number).
+# 5; multiplied by the attempt number), PUSH_VERIFY (a command run after
+# staging and before EVERY commit, the first and each replayed one; if it fails
+# nothing is committed or pushed - the data workflows set it to
+# `python ci/verify_data.py --staged`).
 set -euo pipefail
 if [ "$#" -lt 3 ]; then
   echo "usage: $0 MESSAGE REPLAY_COMMAND PATH..." >&2
@@ -50,6 +53,11 @@ while :; do
   if git diff --cached --quiet; then
     echo "push-with-replay: nothing to commit"
     exit 0
+  fi
+  if [ -n "${PUSH_VERIFY:-}" ] && ! bash -e -c "$PUSH_VERIFY"; then
+    echo "::error::push-with-replay: PUSH_VERIFY failed on attempt $attempt; nothing was committed or pushed"
+    git reset -q
+    exit 1
   fi
   if [ -n "${PUSH_BODY:-}" ]; then
     git commit -q -m "$message" -m "$PUSH_BODY"
