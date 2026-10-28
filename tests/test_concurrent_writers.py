@@ -91,7 +91,7 @@ class PushRaceTests(unittest.TestCase):
         self.git(self.base, "init", "-q", "--bare", "-b", "main", str(self.origin))
         self.git(self.base, "init", "-q", "-b", "main", str(seed))
         self.git(seed, "remote", "add", "origin", str(self.origin))
-        for name in ("history.py", "status.py"):
+        for name in ("history.py", "grid.py", "status.py"):
             shutil.copy(ROOT / name, seed / name)
         source = (ROOT / "collect.py").read_text()
         source = source.replace("def download(start: datetime, end: datetime):", "def _real_download(start, end):")

@@ -361,6 +361,26 @@ rows dropped); observations before the cutoff are dropped and counted (`dropped_
 never raised. The index is rewritten every run (`generated_utc`), so one small commit per hour
 is expected.
 
+### Month density grid (`uk-lightning-history-grid.v1`, `grid/YYYY-MM.json`)
+
+`grid.py` derives one file per UTC calendar month from the day shards: archived **optical** flash
+counts per 0.1° cell (≈ 7 × 11 km; `cell = row*140 + col`, `col = floor((lon+11)/0.1)`,
+`row = floor((lat-49.5)/0.1)`, clamped) per UTC day, as `cells: [[cell, day, n, day, n, …], …]`.
+Any UTC-day window sums exactly from at most 13 files. `days` lists every retention date of the
+month with the index row's `coverage`, `count` (null = never searched: unknown, not zero, no
+cells) and the shard `sha256` list it was built from; a client must treat a day whose entry
+differs from the current index row as stale (unknown). Each day's cells sum to its `count`.
+The file has no timestamp, so it is byte-identical until its month changes.
+
+`archive_observations` refreshes the grids after writing the index, so the hourly ingest, the
+backfills (inside their staging copy) and `recover` all keep them current; only months whose rows
+changed are rewritten and only changed days are re-read. A grid failure never blocks the archive
+(reported as `grid.error`; clients then see stale days as unknown). One-off/repair generator:
+`python grid.py build --archive-dir data/history`; check: `python grid.py verify --deep`.
+Measured on 2026-10-28 (363 531 flashes, 157 days with flashes): 13 files, 320 849 bytes in
+total (≈ 100 kB gzip), largest 135 113 bytes (2026-06); a full rebuild takes ≈ 1.5 s, a no-op
+refresh ≈ 0.1 s.
+
 ## Client (history-window.mjs, DOM-free)
 
 `createLightningHistoryClient({indexUrl, feedUrl, fetchImpl, feedFetchImpl, now, …})`
