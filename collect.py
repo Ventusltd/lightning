@@ -437,13 +437,44 @@ def search_products(start: datetime, end: datetime):
     import eumdac
 
     datastore = eumdac.DataStore(eumdac.AccessToken((key, secret)))
-    products = datastore.get_collection(COLLECTION).search(
-        dtstart=start.replace(tzinfo=None), dtend=end.replace(tzinfo=None)
-    )
-    count = getattr(products, "total_results", None)
-    if count == 0:
-        raise RuntimeError("No EUMETSAT product files returned. Existing map data left unchanged.")
-    return products
+
+    def run_search():
+        return datastore.get_collection(COLLECTION).search(
+            dtstart=start.replace(tzinfo=None), dtend=end.replace(tzinfo=None)
+        )
+
+    return search_with_retries(run_search)
+
+
+def search_with_retries(run_search, *, sleep=None, rng=None):
+    """Run a product search and LIST its results, retrying transient errors.
+
+    The search and its paging are network calls too: backfill run 40690260149
+    lost a whole run to one search ``Read timed out`` that nothing retried. A
+    transient error (classify_download_error) is retried TRANSIENT_RETRIES times
+    with the download backoff; anything else, or the last failure, propagates.
+    Returns the products as a list, so no paging happens later, unretried.
+    """
+    sleep = sleep or _sleep
+    rng = rng or random.random
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            products = run_search()
+            count = getattr(products, "total_results", None)
+            listed = list(products)
+        except Exception as error:  # noqa: BLE001 - classified below
+            kind, label = classify_download_error(error)
+            if kind != "transient" or attempt > TRANSIENT_RETRIES:
+                raise
+            wait = backoff_seconds(attempt, rng)
+            print(f"RETRY search after attempt {attempt} ({label}: {error}); waiting {wait} s", file=sys.stderr)
+            sleep(wait)
+            continue
+        if count == 0:
+            raise RuntimeError("No EUMETSAT product files returned. Existing map data left unchanged.")
+        return listed
 
 
 def unparsed_entry(product_name: str, error: BaseException, *, kind: str = "content", reason: str | None = None,
