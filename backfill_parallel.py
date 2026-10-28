@@ -252,6 +252,8 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
     unparsed_by_day: dict[str, int] = {}
     retries_by_day: dict[str, dict] = {}
     outside_by_day: dict[str, int] = {}
+    unexamined_by_day: dict[str, dict] = {}
+    duplicates_by_day: dict[str, int] = {}
     refused: dict[str, str] = {}
     for day in plan_dates:
         item = listed.get(day)
@@ -284,6 +286,11 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
             retries_by_day[day] = retry
         if result.get("outside_day"):
             outside_by_day[day] = int(result["outside_day"])
+        if result.get("unexamined_time_flashes"):
+            unexamined_by_day[day] = {"flashes": int(result["unexamined_time_flashes"]),
+                                      "slots_utc": list(result.get("unexamined_time_slots_utc") or [])}
+        if result.get("cross_product_duplicates"):
+            duplicates_by_day[day] = int(result["cross_product_duplicates"])
         print(f"Backfilled {day}: coverage {row['coverage']} ({row['scanned_seconds']} s searched), count {row['count']}, "
               f"{len(result['unscanned_ranges'])} unsearched gap(s) left unknown, {unparsed} unparsed product(s).",
               file=sys.stderr)
@@ -299,7 +306,9 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
                                             filled=filled, stopped=stopped, error=error, index=index,
                                             unparsed_by_day=unparsed_by_day, retries_by_day=retries_by_day)
     new_status["backfill"].update(mode="parallel", shards=len(expected), skipped_already_searched_days=skipped,
-                                  refused_days=dict(refused), outside_day_by_day=outside_by_day)
+                                  refused_days=dict(refused), outside_day_by_day=outside_by_day,
+                                  unexamined_time_flashes_by_day=unexamined_by_day,
+                                  cross_product_duplicates_by_day=duplicates_by_day)
     status_mod.write_status(status_path, new_status)
     return {"stopped": stopped, "error": error, "filled": filled, "skipped": skipped, "refused": dict(refused),
             "remaining_unknown": new_status["backfill"]["remaining_unknown_days"], "verify": checked}

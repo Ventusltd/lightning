@@ -64,13 +64,21 @@ PUBLICATION_GRACE_SECONDS = 15 * 60
 RUN_RECORD_SCHEMA = "uk-lightning-run-record.v1"
 # ..._L2PF_OPE_<sensing start YYYYMMDDHHMMSS>_<sensing end YYYYMMDDHHMMSS>_N__O_<slot>_0000
 PRODUCT_SLOT = re.compile(r"_OPE_(\d{14})_(\d{14})_")
-# A flash belongs to the slot of ITS product (nominal sensing start/end in the
-# product name), never to the slot its own timestamp falls in. Real LFL flashes
-# sit up to about 0.4 s outside their product's nominal sensing period (observed:
-# ..._OPE_20261023195009_... flash 322 at 19:50:08.639, 0.361 s early), so a
-# flash within this many seconds of its product's nominal slot is genuine; one
-# further out is an inconsistent record.
+# A product's "nominal slot" is the sensing start/end in its NAME (PRODUCT_SLOT),
+# not its repeat-cycle counter (``_O_<NNNN>_``, 10-minute cycle NNNN of the day)
+# and not the times of its flashes. The name's span is NOT a bound on the flash
+# times inside it: real LFL flashes sit up to about 0.4 s outside it (observed:
+# ..._OPE_20261023195009_... flash 322 at 19:50:08.639, 0.361 s early), and
+# products that start late in their cycle (..._OPE_20260412001255_20260412002005_
+# ..._O_0002_..., cycle 00:10-00:20) or right after midnight (..._OPE_
+# 20260828000049_20260828001009_..._O_0001_...) held flashes more than 60 s
+# outside their name's span (backfill runs 40620556193, 40657338115). A flash is
+# therefore checked by ITS OWN TIME (see classify_flash): it is consistent when it
+# lies within this tolerance of its product's span, or inside any examined span.
 SLOT_EDGE_TOLERANCE_SECONDS = 60
+# Every flash of an examined product is decoded, whatever its time; callers then
+# drop (and count) those outside their window or UTC date, so none is lost silently.
+DECODE_ALL_TIMES = (datetime(1970, 1, 1, tzinfo=timezone.utc), datetime(9999, 1, 1, tzinfo=timezone.utc))
 # A UTC date with more unparsed slots than this fraction of its slots in the
 # query window is not recorded at all: the run stops and the date stays unknown.
 MAX_UNPARSED_DAY_FRACTION = 0.20
@@ -361,13 +369,23 @@ def decode_product(blob: bytes, product_name: str, start: datetime, end: datetim
     body_decoder = body_decoder or decode_body
     if not zipfile.is_zipfile(io.BytesIO(blob)):
         raise ValueError(f"{product_name}: expected EUMETSAT product ZIP")
-    found = False
+    bodies = 0
     features = []
     with zipfile.ZipFile(io.BytesIO(blob)) as archive:
-        for name in archive.namelist():
+        for name in sorted(archive.namelist()):
             if name.upper().endswith(".NC") and "BODY" in Path(name).name.upper():
-                found = True
-                features.extend(body_decoder(archive.read(name), product_name, start, end))
+                decoded = body_decoder(archive.read(name), product_name, start, end)
+                if bodies:
+                    # Flash indexes restart in every BODY file: without a body
+                    # ordinal a second BODY's ids would collide with the first's
+                    # and be deduplicated away silently. The first BODY keeps
+                    # "<product>:<i>" (the ids already archived).
+                    for feature in decoded:
+                        product, _, index = str(feature["id"]).rpartition(":")
+                        feature["id"] = f"{product}:b{bodies}.{index}"
+                features.extend(decoded)
+                bodies += 1
+    found = bodies > 0
     if not found:
         raise ValueError(f"{product_name}: ZIP contained no BODY NetCDF")
     return features
@@ -460,7 +478,6 @@ def download_products(products, start: datetime, end: datetime, *, body_decoder=
     rng = rng or random.random
     found, names, unparsed = [], [], []
     stats = new_retry_stats()
-    tolerance = timedelta(seconds=SLOT_EDGE_TOLERANCE_SECONDS)
     downloaded = consecutive = 0
     for product in products:
         downloaded += 1
@@ -487,11 +504,11 @@ def download_products(products, start: datetime, end: datetime, *, body_decoder=
                     unparsed, stats)
             continue
         consecutive = 0
-        # Decode every flash of the product's own nominal slot (+- tolerance), not
-        # only those inside the query window: callers then drop the ones outside
-        # their window and COUNT them (split_by_window), instead of losing them silently.
-        slot = product_slot(name)
-        lo, hi = (min(start, slot[0] - tolerance), max(end, slot[1] + tolerance)) if slot else (start, end)
+        # Decode EVERY flash of the product, whatever its time (a product's flashes
+        # can lie minutes outside its nominal span): callers then drop the ones
+        # outside their window or date and COUNT them (split_by_window), instead
+        # of losing them silently here.
+        lo, hi = DECODE_ALL_TIMES
         try:
             features = decode_product(blob, name, lo, hi, body_decoder=body_decoder)
         except PRODUCT_CONTENT_ERRORS as error:
@@ -702,24 +719,46 @@ def flash_slot(feature) -> tuple[datetime, datetime] | None:
     return product_slot(identifier.rsplit(":", 1)[0])
 
 
-def flash_in_examined_slot(feature, examined_starts, spans, *,
-                           tolerance_seconds: float = SLOT_EDGE_TOLERANCE_SECONDS) -> bool:
-    """Is this flash consistent with what the search examined?
+# classify_flash results. The first two are consistent with the examined slots;
+# the third is a genuine flash in time nobody searched (kept and counted, its
+# slot stays unknown); the last two are inconsistent records (refused).
+FLASH_IN_PRODUCT_SPAN = "in_product_span"        # within tolerance of its product's nominal span
+FLASH_IN_EXAMINED_SPAN = "in_examined_span"      # outside that, but its own time lies in an examined span
+FLASH_IN_UNEXAMINED_TIME = "in_unexamined_time"  # examined product, own time in no examined span
+FLASH_UNEXAMINED_PRODUCT = "unexamined_product"  # its product is not among the examined slots
+FLASH_NO_SLOT_OUTSIDE = "no_slot_outside"        # legacy id without a product slot, outside every span
 
-    With a product slot in its id: its product's nominal start must be one of
-    ``examined_starts`` (``slots_examined_utc``) and its time must lie within
-    ``tolerance_seconds`` of that slot. Without one (legacy ids): its time must
-    lie in an examined span. Used by history.py's backfill/recover gates.
+
+def classify_flash(feature, examined_starts, spans, *,
+                   tolerance_seconds: float = SLOT_EDGE_TOLERANCE_SECONDS) -> str:
+    """How a flash relates to what the search examined (one of the FLASH_* values).
+
+    The product (from the id) decides only WHETHER the flash was examined: its
+    nominal start must be one of ``examined_starts``. WHEN the flash happened is
+    its own timestamp, checked against its product's nominal span +- tolerance
+    and then against the union of examined ``spans``; a product's name span is
+    not a bound on its flashes' times (see SLOT_EDGE_TOLERANCE_SECONDS).
     """
     moment = parse_utc(feature["properties"]["time_utc"])
+    in_spans = any(s <= moment < e for s, e in spans)
     slot = flash_slot(feature)
     if slot is None:
-        return any(s <= moment < e for s, e in spans)
+        return FLASH_IN_EXAMINED_SPAN if in_spans else FLASH_NO_SLOT_OUTSIDE
     start, end = slot
     if start not in examined_starts:
-        return False
+        return FLASH_UNEXAMINED_PRODUCT
     tolerance = timedelta(seconds=tolerance_seconds)
-    return start - tolerance <= moment < end + tolerance
+    if start - tolerance <= moment < end + tolerance:
+        return FLASH_IN_PRODUCT_SPAN
+    return FLASH_IN_EXAMINED_SPAN if in_spans else FLASH_IN_UNEXAMINED_TIME
+
+
+def flash_in_examined_slot(feature, examined_starts, spans, *,
+                           tolerance_seconds: float = SLOT_EDGE_TOLERANCE_SECONDS) -> bool:
+    """Does this flash's own time lie in examined time (its product's span +- tolerance,
+    or any examined span), with its product examined? See classify_flash."""
+    return classify_flash(feature, examined_starts, spans, tolerance_seconds=tolerance_seconds) in (
+        FLASH_IN_PRODUCT_SPAN, FLASH_IN_EXAMINED_SPAN)
 
 
 def split_by_window(features, start: datetime, end: datetime) -> tuple[list, int]:
