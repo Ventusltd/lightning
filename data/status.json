@@ -8,7 +8,7 @@
   "alert": null,
   "lost_days": [],
   "quarantined_observations": 0,
-  "source": "this_run"
+  "source": "backfill"
  },
  "last_attempt_utc": "2026-10-28T15:33:34.101Z",
  "last_attempt_outcome": "success",
@@ -93,7 +93,7 @@
  "archive": {
   "outcome": "success",
   "error": null,
-  "archived_observations": 365012,
+  "archived_observations": 365060,
   "files_changed": 1,
   "dropped_before_cutoff": 0,
   "split_days": [
@@ -105,7 +105,7 @@
   ],
   "lost_days": [],
   "dropped_lost_day": 0,
-  "index_generated_utc": "2026-10-28T15:35:42.817Z"
+  "index_generated_utc": "2026-10-28T15:46:40.530Z"
  },
  "thresholds_hours": {
   "warn": 6,
@@ -141,33 +141,15 @@
   "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 28 Oct 15:33 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
  },
  "backfill": {
-  "last_run_utc": "2026-10-28T15:08:03.735Z",
+  "last_run_utc": "2026-10-28T15:46:40.530Z",
   "outcome": "completed",
   "stopped_reason": "completed",
   "error": null,
   "planned_days": [
-   "2026-03-08",
-   "2026-03-06",
-   "2026-03-05",
-   "2026-03-02",
-   "2026-03-01",
-   "2026-02-28",
-   "2026-02-27",
-   "2026-02-26",
-   "2026-02-25",
-   "2026-02-24"
+   "2026-04-12"
   ],
   "filled_days": [
-   "2026-03-08",
-   "2026-03-06",
-   "2026-03-05",
-   "2026-03-02",
-   "2026-03-01",
-   "2026-02-28",
-   "2026-02-27",
-   "2026-02-26",
-   "2026-02-25",
-   "2026-02-24"
+   "2026-04-12"
   ],
   "remaining_unknown_days": [],
   "unparsed_products": 0,
@@ -176,11 +158,18 @@
   "download_retries_by_day": {},
   "note": "Backfilled dates carry the examined 10-minute slots of a fresh whole-day EUMETSAT search; dates not filled stay never searched (unknown, not zero).",
   "mode": "parallel",
-  "shards": 6,
+  "shards": 1,
   "skipped_already_searched_days": [],
   "refused_days": {},
   "outside_day_by_day": {},
-  "unexamined_time_flashes_by_day": {},
+  "unexamined_time_flashes_by_day": {
+   "2026-04-12": {
+    "flashes": 3,
+    "slots_utc": [
+     "2026-04-12T00:20:09.000Z"
+    ]
+   }
+  },
   "cross_product_duplicates_by_day": {}
  },
  "note": "A failed run leaves the feed and archive unchanged. Time not covered by a successful scan is unknown, not zero. Flashes are optical satellite detections, not confirmed ground strikes."
