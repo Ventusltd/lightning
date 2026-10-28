@@ -241,8 +241,10 @@ class RebuildDayTests(Base):
 
     def test_non_retryable_http_and_auth_errors_still_stop(self):
         # 401 here: the fake product has no eumdac token to re-request, so it stops too.
+        # A 404/410/400 on ONE product is now an unparsed slot (test_download_retries:
+        # test_one_product_the_store_will_not_serve_becomes_an_unparsed_slot).
         for error in (RuntimeError("HTTP 401 Unauthorized"), RuntimeError("HTTP 403 Forbidden"),
-                      RuntimeError("HTTP 404 Not Found"), PermissionError("denied")):
+                      PermissionError("denied")):
             with self.subTest(error=error):
                 self.record.unlink(missing_ok=True)
                 with self.assertRaises(type(error)):

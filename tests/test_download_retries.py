@@ -258,8 +258,7 @@ class TransientRetryTests(Base):
         self.assertEqual(rec["download_retries"]["products_failed"], 29)
 
     def test_non_transient_errors_stop_at_once_without_retry(self):
-        for error in (ProductError(403), ProductError(404), HTTPError(400), PermissionError("denied"),
-                      RuntimeError("HTTP 403 Forbidden")):
+        for error in (ProductError(403), PermissionError("denied"), RuntimeError("HTTP 403 Forbidden")):
             with self.subTest(error=repr(error)):
                 self.record.unlink(missing_ok=True)
                 fake = FlakyEumetsat(always={3: error})
@@ -267,6 +266,29 @@ class TransientRetryTests(Base):
                     self.rebuild(fake)
                 self.assertEqual(fake.opened.count(slot_name(DAY0 + timedelta(minutes=30))), 1)
                 self.assertEqual(fake.sleeps, [])
+
+
+    def test_one_product_the_store_will_not_serve_becomes_an_unparsed_slot(self):
+        """Backfill run 40737353777: one ProductError 'Could not download Product' killed the shard."""
+        for error in (ProductError(404), ProductError(410), ProductError(400), HTTPError(400)):
+            with self.subTest(error=repr(error)):
+                self.record.unlink(missing_ok=True)
+                fake = FlakyEumetsat(always={3: error})
+                self.assertEqual(self.rebuild(fake), 0)
+                rec = self.load()
+                bad = slot_name(DAY0 + timedelta(minutes=30))
+                self.assertEqual(rec["outcome"], "success")
+                self.assertEqual(fake.opened.count(bad), 1)  # no retry: the store refused this product
+                self.assertEqual(fake.sleeps, [])
+                [entry] = rec["unparsed_products"]
+                self.assertEqual(entry["product"], bad)
+                self.assertIn("HTTP", entry["reason"])
+                self.assertEqual(rec["unparsed_slots_utc"], ["2026-10-20T00:30:00.000Z"])
+
+    def test_five_refused_products_in_a_row_still_stop_as_an_outage(self):
+        fake = FlakyEumetsat(always={i: ProductError(404) for i in range(10, 15)})
+        with self.assertRaises(collect.DownloadOutage):
+            self.rebuild(fake)
 
 
 class RateLimitTests(Base):
