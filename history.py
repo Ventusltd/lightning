@@ -36,8 +36,8 @@ from pathlib import Path
 from typing import Iterable
 
 from collect import (
-    LOOKBACK_MAX_HOURS, LOOKBACK_MIN_HOURS, PROVIDER, RUN_RECORD_SCHEMA, SLOT_SECONDS, SOURCE_URL,
-    UK_BOUNDS, inside_uk_view, parse_utc,
+    LOOKBACK_MAX_HOURS, LOOKBACK_MIN_HOURS, PROVIDER, RUN_RECORD_SCHEMA, SLOT_EDGE_TOLERANCE_SECONDS, SLOT_SECONDS,
+    SOURCE_URL, UK_BOUNDS, flash_in_examined_slot, flash_slot, inside_uk_view, parse_utc,
 )
 
 SCHEMA_INDEX = "uk-lightning-history-index.v2"
@@ -260,11 +260,18 @@ def scanned_seconds_for_day(windows: list[dict], day: date) -> int:
 
 def slots_proved_by_flashes(records: list[dict]) -> int:
     """Lower bound of searched seconds: every archived flash proves that the
-    10-minute product slot containing it was examined."""
+    10-minute slot of ITS product was examined. The slot is taken from the
+    product's nominal start (collect.flash_slot), the same attribution collect.py
+    and the backfill gate use, so an edge flash timed just before its product's
+    start does not prove the previous slot; ids without a product slot fall back
+    to the flash's own time."""
     slots = set()
     for record in records:
         moment = parse_utc(record["properties"]["time_utc"])
-        seconds = moment.hour * 3600 + moment.minute * 60 + moment.second - SLOT_PHASE_SECONDS
+        slot = flash_slot(record)
+        anchor = slot[0] if slot else moment
+        day_start = datetime.combine(moment.date(), time.min, tzinfo=timezone.utc)
+        seconds = int(math.floor((anchor - day_start).total_seconds())) - SLOT_PHASE_SECONDS
         slots.add(seconds // SLOT_SECONDS)
     return min(DAY_SECONDS, len(slots) * SLOT_SECONDS)
 
@@ -1129,15 +1136,25 @@ def backfill_day(
     spans = [(parse_utc(w["start_utc"]), parse_utc(w["end_utc"])) for w in windows]
     if any(s < day_start or e > day_end for s, e in spans):
         raise ValueError(f"{rebuild_record}: scanned ranges leave {day}")
+    examined = {parse_utc(s) for s in record.get("slots_examined_utc") or []}
     cutoff = year_ago(now.date())
+    # A valid flash of the neighbouring UTC date (a product straddling midnight)
+    # is not refused: it is dropped from this date and counted as outside_day.
+    validity_cutoff = min(cutoff, date.fromisoformat(day) - timedelta(days=1))
     found: dict[str, dict] = {}
+    outside_day = 0
     for feature in record.get("features") or []:
-        valid = validate_feature(feature, now, cutoff)
-        if valid is None or valid[0] != day:
-            raise ValueError(f"{rebuild_record}: invalid or wrong-day observation {feature.get('id') if isinstance(feature, dict) else feature!r}")
-        moment = parse_utc(feature["properties"]["time_utc"])
-        if not any(s <= moment < e for s, e in spans):
-            raise ValueError(f"{rebuild_record}: flash {feature['id']} lies outside the examined slots")
+        valid = validate_feature(feature, now, validity_cutoff)
+        if valid is None:
+            raise ValueError(f"{rebuild_record}: invalid observation {feature.get('id') if isinstance(feature, dict) else feature!r}")
+        if valid[0] != day:
+            outside_day += 1
+            continue
+        # Attributed to its product's nominal slot: that product must have been
+        # examined and the flash must lie within SLOT_EDGE_TOLERANCE_SECONDS of it.
+        if not flash_in_examined_slot(feature, examined, spans):
+            raise ValueError(f"{rebuild_record}: flash {feature['id']} lies outside the examined slots "
+                             f"(its product's nominal slot +- {SLOT_EDGE_TOLERANCE_SECONDS} s)")
         found.setdefault(feature["id"], feature)
     expected_seconds = scanned_seconds_for_day(windows, date.fromisoformat(day))
 
@@ -1176,6 +1193,10 @@ def backfill_day(
                     "slots_examined": record.get("slots_examined"),
                     "record_sha256": hashlib.sha256(raw).hexdigest()},
         "unscanned_ranges": record.get("unscanned_ranges") or [],
+        # Flashes timed outside the date: dropped by collect.py (record "outside_day")
+        # plus any still present in the record and dropped here.
+        "outside_day": outside_day + int(record.get("outside_day") or 0),
+        "outside_day_in_record": outside_day,
         "files_changed": result["files_changed"], "split_days": result["split_days"],
         "archived_observations": index_after["archived_observations"],
         "index_generated_utc": index_after["generated_utc"],
@@ -1239,7 +1260,8 @@ def main(argv=None):
             args.result_out.write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
         row = result["row"]
         print(f"Backfilled {result['date']}: coverage {row['coverage']} ({row['scanned_seconds']} s searched), "
-              f"count {row['count']}, {len(result['unscanned_ranges'])} unsearched gap(s) left unknown; verify ok.")
+              f"count {row['count']}, {len(result['unscanned_ranges'])} unsearched gap(s) left unknown, "
+              f"{result['outside_day']} flash(es) outside the date dropped; verify ok.")
         if result["integrity"]["state"] != "ok":
             print(result["integrity"]["alert"], file=sys.stderr)
         return 0

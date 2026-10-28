@@ -64,6 +64,13 @@ PUBLICATION_GRACE_SECONDS = 15 * 60
 RUN_RECORD_SCHEMA = "uk-lightning-run-record.v1"
 # ..._L2PF_OPE_<sensing start YYYYMMDDHHMMSS>_<sensing end YYYYMMDDHHMMSS>_N__O_<slot>_0000
 PRODUCT_SLOT = re.compile(r"_OPE_(\d{14})_(\d{14})_")
+# A flash belongs to the slot of ITS product (nominal sensing start/end in the
+# product name), never to the slot its own timestamp falls in. Real LFL flashes
+# sit up to about 0.4 s outside their product's nominal sensing period (observed:
+# ..._OPE_20261023195009_... flash 322 at 19:50:08.639, 0.361 s early), so a
+# flash within this many seconds of its product's nominal slot is genuine; one
+# further out is an inconsistent record.
+SLOT_EDGE_TOLERANCE_SECONDS = 60
 # A UTC date with more unparsed slots than this fraction of its slots in the
 # query window is not recorded at all: the run stops and the date stays unknown.
 MAX_UNPARSED_DAY_FRACTION = 0.20
@@ -453,6 +460,7 @@ def download_products(products, start: datetime, end: datetime, *, body_decoder=
     rng = rng or random.random
     found, names, unparsed = [], [], []
     stats = new_retry_stats()
+    tolerance = timedelta(seconds=SLOT_EDGE_TOLERANCE_SECONDS)
     downloaded = consecutive = 0
     for product in products:
         downloaded += 1
@@ -479,8 +487,13 @@ def download_products(products, start: datetime, end: datetime, *, body_decoder=
                     unparsed, stats)
             continue
         consecutive = 0
+        # Decode every flash of the product's own nominal slot (+- tolerance), not
+        # only those inside the query window: callers then drop the ones outside
+        # their window and COUNT them (split_by_window), instead of losing them silently.
+        slot = product_slot(name)
+        lo, hi = (min(start, slot[0] - tolerance), max(end, slot[1] + tolerance)) if slot else (start, end)
         try:
-            features = decode_product(blob, name, start, end, body_decoder=body_decoder)
+            features = decode_product(blob, name, lo, hi, body_decoder=body_decoder)
         except PRODUCT_CONTENT_ERRORS as error:
             entry = unparsed_entry(name, error)
             unparsed.append(entry)
@@ -680,6 +693,46 @@ def product_slot(product_name: str) -> tuple[datetime, datetime] | None:
     return start, end
 
 
+def flash_slot(feature) -> tuple[datetime, datetime] | None:
+    """Nominal sensing slot of the product a flash came from (its id is
+    ``<product name>:<index>``), or None when the id carries no product slot."""
+    identifier = feature.get("id") if isinstance(feature, dict) else None
+    if not isinstance(identifier, str):
+        return None
+    return product_slot(identifier.rsplit(":", 1)[0])
+
+
+def flash_in_examined_slot(feature, examined_starts, spans, *,
+                           tolerance_seconds: float = SLOT_EDGE_TOLERANCE_SECONDS) -> bool:
+    """Is this flash consistent with what the search examined?
+
+    With a product slot in its id: its product's nominal start must be one of
+    ``examined_starts`` (``slots_examined_utc``) and its time must lie within
+    ``tolerance_seconds`` of that slot. Without one (legacy ids): its time must
+    lie in an examined span. Used by history.py's backfill/recover gates.
+    """
+    moment = parse_utc(feature["properties"]["time_utc"])
+    slot = flash_slot(feature)
+    if slot is None:
+        return any(s <= moment < e for s, e in spans)
+    start, end = slot
+    if start not in examined_starts:
+        return False
+    tolerance = timedelta(seconds=tolerance_seconds)
+    return start - tolerance <= moment < end + tolerance
+
+
+def split_by_window(features, start: datetime, end: datetime) -> tuple[list, int]:
+    """(flashes timed inside [start, end), number of flashes outside it)."""
+    inside, outside = [], 0
+    for feature in features:
+        if start <= parse_utc(feature["properties"]["time_utc"]) < end:
+            inside.append(feature)
+        else:
+            outside += 1
+    return inside, outside
+
+
 def merge_ranges(ranges, *, tolerance_seconds: float = 1.0) -> list[tuple[datetime, datetime]]:
     """Union of half-open ranges; adjacent slots (within tolerance) join."""
     ordered = sorted((s, e) for s, e in ranges if e > s)
@@ -818,6 +871,10 @@ def rebuild_day_record(day: str, run_record: Path, *, now: datetime | None = Non
     try:
         incoming, product_count, names, unparsed, retries = unpack_download((downloader or download)(start, end))
         check_unparsed(unparsed, names, start, end)
+        # Flashes of an examined product timed outside the UTC date (e.g. the
+        # previous day's tail of a product straddling midnight) are not this
+        # date's observations: dropped from the record and counted.
+        incoming, outside_day = split_by_window(incoming, start, end)
     except (TooManyUnparsed, DownloadOutage) as error:
         unparsed = error.unparsed if isinstance(error, DownloadOutage) else unparsed
         retries = error.retries if isinstance(error, DownloadOutage) else retries
@@ -837,12 +894,14 @@ def rebuild_day_record(day: str, run_record: Path, *, now: datetime | None = Non
     )
     record["run_utc"] = iso_utc(now)
     record["rebuild_day_utc"] = day
+    record["outside_day"] = outside_day
     record["note"] = ("Rebuild search of one UTC date for history.py recover --rebuild; not a feed run. "
                       "Only examined 10-minute slots count as searched.")
     write_json(run_record, record)
     print(f"Rebuild of {day}: {len(incoming)} flashes from {product_count} products "
           f"({record['slots_examined']} slots examined, {len(record['unscanned_ranges'])} gaps, "
-          f"{record['products_unparsed']} unparsed product(s), {retries['retries']} download retries).", file=sys.stderr)
+          f"{record['products_unparsed']} unparsed product(s), {retries['retries']} download retries, "
+          f"{outside_day} flash(es) outside the date dropped).", file=sys.stderr)
     return 0
 
 
@@ -889,6 +948,7 @@ def main(argv=None, *, now: datetime | None = None):
     try:
         incoming, product_count, names, unparsed, retries = unpack_download(download(beginning, now))
         check_unparsed(unparsed, names, beginning, now)
+        incoming, outside_window = split_by_window(incoming, beginning, now)
         existing = read_previous(args.out)
         result = assemble(existing, incoming, now, retention_days=args.retention_days)
         record = build_run_record(
@@ -896,6 +956,7 @@ def main(argv=None, *, now: datetime | None = None):
             last_success_before=last_success, product_names=names, products_examined=product_count,
             incoming=incoming, existing=existing, feed=result, unparsed=unparsed, retries=retries,
         )
+        record["outside_window"] = outside_window
     except Exception as error:  # noqa: BLE001 - the record must name any failure
         if isinstance(error, DownloadOutage):
             unparsed, retries = error.unparsed, error.retries
