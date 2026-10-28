@@ -146,7 +146,7 @@ class BackfillWorkflowShellTests(unittest.TestCase):
         self.git("init", "-q", "--bare", "-b", "main", str(self.origin), cwd=base)
         self.git("init", "-q", "-b", "main", str(self.repo), cwd=base)
         self.git("remote", "add", "origin", str(self.origin))
-        for name in ("history.py", "status.py"):
+        for name in ("history.py", "grid.py", "status.py"):
             shutil.copy(ROOT / name, self.repo / name)
         source = (ROOT / "collect.py").read_text()
         source = source.replace("def download(start: datetime, end: datetime):", "def _real_download(start, end):")

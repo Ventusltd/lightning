@@ -4,6 +4,7 @@ on:
     paths:
       - "collect.py"
       - "history.py"
+      - "grid.py"
       - "status.py"
       - "backfill_parallel.py"
       - "history-window.mjs"
@@ -17,6 +18,7 @@ on:
     paths:
       - "collect.py"
       - "history.py"
+      - "grid.py"
       - "status.py"
       - "backfill_parallel.py"
       - "history-window.mjs"

@@ -706,7 +706,19 @@ def archive_observations(
     }
     if _write_if_changed(index_path, _serialise(index)):
         changed_files += 1
+    # Derived month density grids (grid/YYYY-MM.json). Only months whose rows
+    # changed are rewritten and only changed days are re-read. A grid failure
+    # never blocks the archive: clients see the grid's days differ from the
+    # index and treat them as unknown (stale), never as zero.
+    # Grid writes are reported in "grid", not in files_changed (shard/index files only).
+    try:
+        import grid  # local import: grid.py imports this module
+        grid_result = grid.refresh_grids(archive_dir, index)
+        grid_result["error"] = None
+    except (ImportError, ValueError, OSError, KeyError, TypeError) as error:
+        grid_result = {"written": [], "removed": [], "error": f"{type(error).__name__}: {error}"}
     return {
+        "grid": grid_result,
         "index": index, "files_changed": changed_files, "days_expired": len(expired_files),
         "dropped_before_cutoff": dropped_before_cutoff, "dropped_invalid": dropped_invalid,
         "split_days": sorted(set(split_days)),
@@ -1254,7 +1266,7 @@ def backfill_day(
         # Same flash (time and position) listed by two products: archived once.
         "cross_product_duplicates": cross_product_duplicates,
         "duplicate_ids_in_record": duplicate_ids,
-        "files_changed": result["files_changed"], "split_days": result["split_days"],
+        "files_changed": result["files_changed"], "split_days": result["split_days"], "grid": result["grid"],
         "archived_observations": index_after["archived_observations"],
         "index_generated_utc": index_after["generated_utc"],
         "last_successful_scan_end_utc": index_after["last_successful_scan_end_utc"],
@@ -1367,6 +1379,9 @@ def main(argv=None):
           f"split days: {result['split_days'] or 'none'}.")
     if result["integrity"]["state"] != "ok":
         print(result["integrity"]["alert"], file=sys.stderr)
+    if result["grid"]["error"]:
+        print(f"GRID WARNING (archive unaffected; grid days stay stale/unknown): {result['grid']['error']}",
+              file=sys.stderr)
     return 0
 
 
