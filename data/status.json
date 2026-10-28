@@ -8,7 +8,7 @@
   "alert": null,
   "lost_days": [],
   "quarantined_observations": 0,
-  "source": "this_run"
+  "source": "backfill"
  },
  "last_attempt_utc": "2026-10-28T02:31:07.185Z",
  "last_attempt_outcome": "success",
@@ -93,7 +93,7 @@
  "archive": {
   "outcome": "success",
   "error": null,
-  "archived_observations": 38874,
+  "archived_observations": 58701,
   "files_changed": 1,
   "dropped_before_cutoff": 0,
   "split_days": [
@@ -101,7 +101,7 @@
   ],
   "lost_days": [],
   "dropped_lost_day": 0,
-  "index_generated_utc": "2026-10-28T02:34:06.111Z"
+  "index_generated_utc": "2026-10-28T03:07:43.803Z"
  },
  "thresholds_hours": {
   "warn": 6,
@@ -137,46 +137,93 @@
   "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 28 Oct 02:31 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
  },
  "backfill": {
-  "last_run_utc": "2026-10-28T00:58:53.845Z",
+  "last_run_utc": "2026-10-28T03:07:43.803Z",
   "outcome": "stopped",
   "stopped_reason": "archive_refused",
-  "error": "2026-08-28: /home/runner/work/_temp/records/rb-2026-08-28.json: flash W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+LI-2-LFL--FD--x-x--ARC-x_C_EUMT_20260828001513_L2PF_OPE_20260828000049_20260828001009_N__O_0001_0000:203 lies outside the examined slots",
+  "error": "2026-08-28: /home/runner/work/_temp/records/rb-2026-08-28.json: flash W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+LI-2-LFL--FD--x-x--ARC-x_C_EUMT_20260828001513_L2PF_OPE_20260828000049_20260828001009_N__O_0001_0000:203 lies outside the examined slots (its product's nominal slot +- 60 s)",
   "planned_days": [
-   "2026-09-09",
-   "2026-09-06",
-   "2026-09-03",
-   "2026-08-31",
    "2026-08-28",
    "2026-08-25",
    "2026-08-22",
    "2026-08-21",
    "2026-08-20",
    "2026-08-19",
-   "2026-08-18"
+   "2026-08-18",
+   "2026-08-17",
+   "2026-08-16",
+   "2026-08-15",
+   "2026-08-14",
+   "2026-08-13",
+   "2026-08-12",
+   "2026-08-11",
+   "2026-08-10",
+   "2026-08-09",
+   "2026-08-08",
+   "2026-08-07",
+   "2026-08-06",
+   "2026-08-05",
+   "2026-08-04",
+   "2026-08-03",
+   "2026-08-02",
+   "2026-08-01",
+   "2026-07-31",
+   "2026-07-30",
+   "2026-07-29"
   ],
   "filled_days": [
-   "2026-09-09",
-   "2026-09-06",
-   "2026-09-03",
-   "2026-08-31"
-  ],
-  "remaining_unknown_days": [
-   "2026-08-28",
    "2026-08-25",
    "2026-08-22",
    "2026-08-21",
    "2026-08-20",
    "2026-08-19",
-   "2026-08-18"
+   "2026-08-18",
+   "2026-08-17",
+   "2026-08-16",
+   "2026-08-15",
+   "2026-08-14",
+   "2026-08-13",
+   "2026-08-12",
+   "2026-08-11",
+   "2026-08-10",
+   "2026-08-09",
+   "2026-08-08",
+   "2026-08-07",
+   "2026-08-06",
+   "2026-08-05",
+   "2026-08-04",
+   "2026-08-03",
+   "2026-08-02",
+   "2026-08-01",
+   "2026-07-31",
+   "2026-07-30",
+   "2026-07-29"
   ],
-  "unparsed_products": 0,
-  "unparsed_products_by_day": {},
+  "remaining_unknown_days": [
+   "2026-08-28"
+  ],
+  "unparsed_products": 1,
+  "unparsed_products_by_day": {
+   "2026-08-22": 1
+  },
   "download_retries": 0,
   "download_retries_by_day": {},
   "note": "Backfilled dates carry the examined 10-minute slots of a fresh whole-day EUMETSAT search; dates not filled stay never searched (unknown, not zero).",
   "mode": "parallel",
-  "shards": 3,
-  "skipped_already_searched_days": []
+  "shards": 6,
+  "skipped_already_searched_days": [],
+  "refused_days": {
+   "2026-08-28": "/home/runner/work/_temp/records/rb-2026-08-28.json: flash W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+LI-2-LFL--FD--x-x--ARC-x_C_EUMT_20260828001513_L2PF_OPE_20260828000049_20260828001009_N__O_0001_0000:203 lies outside the examined slots (its product's nominal slot +- 60 s)"
+  },
+  "outside_day_by_day": {
+   "2026-08-22": 11,
+   "2026-08-21": 2,
+   "2026-08-14": 11,
+   "2026-08-13": 2,
+   "2026-08-12": 2,
+   "2026-08-11": 1,
+   "2026-08-05": 5,
+   "2026-08-04": 4
+  }
  },
  "note": "A failed run leaves the feed and archive unchanged. Time not covered by a successful scan is unknown, not zero. Flashes are optical satellite detections, not confirmed ground strikes."
 }
