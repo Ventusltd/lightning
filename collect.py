@@ -99,6 +99,13 @@ TRANSIENT_ERROR_NAMES = frozenset({
     "RemoteDisconnected",
 })
 TRANSIENT_HTTP_STATUS = frozenset({500, 502, 503, 504})
+# A single product the search LISTED but the Data Store will not serve (backfill
+# run 40737353777: eumdac ProductError "Could not download Product ..." on one
+# 2025-12-14 slot killed the shard). Such a product is FAILED: its slot becomes
+# unparsed (unknown, never zero), bounded by MAX_UNPARSED_DAY_FRACTION and the
+# consecutive-failure stop, instead of stopping the whole run. 401/403/429 keep
+# their own handling: they are account-wide, not one product.
+PRODUCT_FAILED_HTTP_STATUS = frozenset({400, 404, 409, 410, 416, 422, 423})
 TRANSIENT_RETRIES = 4
 RETRY_BACKOFF_SECONDS = (2, 4, 8, 16)  # exponential; up to +50 % jitter, never above the cap
 RETRY_MAX_BACKOFF_SECONDS = 30
@@ -197,6 +204,8 @@ def classify_download_error(error: BaseException) -> tuple[str, str]:
         return "auth", "HTTP 401"
     if status in TRANSIENT_HTTP_STATUS:
         return "transient", f"HTTP {status}"
+    if status in PRODUCT_FAILED_HTTP_STATUS:
+        return "product_failed", f"HTTP {status}"
     if status is not None:
         return "fatal", f"HTTP {status}"
     for item in _error_chain(error):
