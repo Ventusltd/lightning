@@ -86,9 +86,12 @@ jobs:
     if: ${{ !inputs.dry_run && needs.plan.outputs.count != '0' }}
     runs-on: ubuntu-latest
     # About 18.5 min per whole-day search (run 40464739813: 11 dates in 203 min).
-    # No new date starts after SHARD_BUDGET_MINUTES, so a shard ends well inside
-    # the job timeout (GitHub's hosted maximum is 360).
-    timeout-minutes: 340
+    # No new date starts after SHARD_BUDGET_MINUTES (170); a date still running
+    # at SHARD_HARD_STOP_MINUTES (190) is killed and left unknown, so the search
+    # step ends, and its records upload, inside the 200-minute job timeout.
+    # Run 40564980740's shard 3 hung on a stalled EUMETSAT read (no HTTP timeout)
+    # for over 5 h and held finalize for every shard; that can no longer happen.
+    timeout-minutes: 200
     strategy:
       # An EUMETSAT error fails its shard AFTER its records are uploaded; fail-fast
       # then cancels the other shards (rate limits are per account), whose
@@ -97,7 +100,8 @@ jobs:
       max-parallel: 6
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     env:
-      SHARD_BUDGET_MINUTES: "290"
+      SHARD_BUDGET_MINUTES: "170"
+      SHARD_HARD_STOP_MINUTES: "190"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -110,6 +114,9 @@ jobs:
       # stop so the upload below always runs; the stop is surfaced after it.
       - name: Search this shard's dates (run records only)
         id: search
+        # Backstop for the in-process wall clock: the step fails, the always()
+        # upload below still runs before the job timeout.
+        timeout-minutes: 195
         env:
           EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
           EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
@@ -117,7 +124,8 @@ jobs:
           DATES: ${{ matrix.dates }}
         run: |
           python backfill_parallel.py shard --shard "$SHARD" --dates "$DATES" \
-            --out-dir "$RUNNER_TEMP/records" --budget-minutes "${SHARD_BUDGET_MINUTES:-290}" \
+            --out-dir "$RUNNER_TEMP/records" --budget-minutes "${SHARD_BUDGET_MINUTES:-170}" \
+            --hard-stop-minutes "${SHARD_HARD_STOP_MINUTES:-190}" \
             --stagger-step-seconds "${SHARD_STAGGER_STEP_SECONDS:-20}" < /dev/null
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
@@ -165,7 +173,12 @@ jobs:
         with:
           name: backfill-plan
           path: ${{ runner.temp }}/plan
-      - uses: actions/download-artifact@v4
+      # Whatever shard artifacts exist: a shard that uploaded nothing is
+      # "shard_missing" in finalize and its dates stay unknown; it never blocks
+      # the records of the other shards.
+      - name: Download shard records (whatever exists)
+        continue-on-error: true
+        uses: actions/download-artifact@v4
         with:
           pattern: backfill-shard-*
           merge-multiple: true

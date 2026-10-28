@@ -335,7 +335,7 @@ class ShardAndStatusTests(Base):
         fakes = {"2026-10-20": FlakyEumetsat(scripts={4: [incident_error(), incident_error(), None]},
                                              always={9: incident_error()}),
                  "2026-10-19": FlakyEumetsat()}
-        collector = lambda day, record, log: collect.rebuild_day_record(day, record, now=NOW, downloader=fakes[day])
+        collector = lambda day, record, log, timeout=None: collect.rebuild_day_record(day, record, now=NOW, downloader=fakes[day])
         summary = bp.run_shard(1, dates, out, budget_minutes=290, collector=collector)
         self.assertEqual((summary["stopped"], len(summary["collected"])), ("completed", 2))
         result = bp.finalize(plan_dates=dates, shards=1, records_dir=out, archive_dir=root,
@@ -354,7 +354,7 @@ class ShardAndStatusTests(Base):
     def test_an_outage_stops_the_shard(self):
         out = self.base / "records"
         fake = FlakyEumetsat(always={i: incident_error() for i in range(144)})
-        collector = lambda day, record, log: collect.rebuild_day_record(day, record, now=NOW, downloader=fake)
+        collector = lambda day, record, log, timeout=None: collect.rebuild_day_record(day, record, now=NOW, downloader=fake)
         summary = bp.run_shard(1, ["2026-10-20", "2026-10-19"], out, budget_minutes=290, collector=collector)
         self.assertEqual(summary["stopped"], "eumetsat_error")
         self.assertIn("consecutive products failed", summary["error"])

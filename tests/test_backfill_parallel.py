@@ -57,7 +57,7 @@ class FakeEumetsat:
         return flashes, len(names), names
 
     def collector(self):
-        return lambda day, record, log: collect.rebuild_day_record(day, record, now=NOW, downloader=self)
+        return lambda day, record, log, timeout=None: collect.rebuild_day_record(day, record, now=NOW, downloader=self)
 
 
 def make_archive(root: Path, now: datetime, searched: date) -> None:
@@ -161,7 +161,7 @@ class ShardTests(unittest.TestCase):
         clock = [0.0]
         fake = FakeEumetsat()
 
-        def slow(day, record, log):  # each whole-day search "takes" 100 minutes
+        def slow(day, record, log, timeout=None):  # each whole-day search "takes" 100 minutes
             fake.collector()(day, record, log)
             clock[0] += 100 * 60
         summary = bp.run_shard(1, self.dates, self.out, budget_minutes=150, collector=slow, clock=lambda: clock[0])
@@ -172,7 +172,7 @@ class ShardTests(unittest.TestCase):
     def test_cancellation_mid_search_keeps_finished_records_and_drops_the_partial_one(self):
         fake = FakeEumetsat()
 
-        def collector(day, record, log):
+        def collector(day, record, log, timeout=None):
             if day == "2026-10-17":
                 record.write_text('{"schema": "uk-lightning-run-rec')  # killed mid-write
                 raise bp.Cancelled("signal 15")

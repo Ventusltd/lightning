@@ -22,7 +22,9 @@ Collection model (data plane only, nothing here touches GridAtlas):
   capped at 30 s), waits out up to 3 HTTP 429 Retry-Afters (at most 60 s each)
   and re-requests the access token once on 401. A product still failing is
   UNPARSED too (unknown, never zero, with its reason) and the run carries on.
-  The run stops on ``MAX_CONSECUTIVE_FAILED_PRODUCTS`` failed downloads in a
+  Every HTTP call has an explicit (connect, read) timeout, ``HTTP_TIMEOUT``
+  (15, 60) s, so a stalled read raises a (transient) ReadTimeout instead of
+  hanging for ever. The run stops on ``MAX_CONSECUTIVE_FAILED_PRODUCTS`` failed downloads in a
   row (likely outage), on any other HTTP/auth error, and on a UTC date with
   more than ``MAX_UNPARSED_DAY_FRACTION`` of its slots unparsed;
 - the live 7-day feed is written first; the one-year archive and the status
@@ -89,6 +91,13 @@ RATE_LIMIT_MAX_WAIT_SECONDS = 60
 # This many products in a row failing to download is a likely EUMETSAT outage: stop.
 MAX_CONSECUTIVE_FAILED_PRODUCTS = 5
 MAX_RETRY_EVENTS = 200  # cap the per-event list kept in the run record
+# Every HTTP call (token, search, product download) gets this explicit
+# (connect, read) timeout in seconds. eumdac passes no timeout to requests, so
+# without it one stalled TCP read blocks for ever (parallel backfill run
+# 40564980740, shard 3: still "in_progress" after 5 h). The read timeout
+# bounds each socket read; a ReadTimeout is transient, so it is retried and a
+# product still timing out after its retries is UNPARSED (unknown, never zero).
+HTTP_TIMEOUT = (15, 60)
 _HTTP_STATUS_IN_TEXT = re.compile(r"\bHTTP (\d{3})\b|\b(?:error|Unauthorised|Not found) \((\d{3})\)")
 
 
@@ -357,12 +366,49 @@ def decode_product(blob: bytes, product_name: str, start: datetime, end: datetim
     return features
 
 
+def install_http_timeouts(timeout=None, *, requests_module=None) -> bool:
+    """Give every ``requests`` call without an explicit timeout ``HTTP_TIMEOUT``.
+
+    eumdac (token, search, ``Product.open``) calls ``requests.Session`` methods
+    without ``timeout``, which means "wait for ever". This wraps
+    ``Session.request`` once per process so a missing or None timeout becomes
+    the (connect, read) default; an explicit timeout is kept. The socket
+    default timeout is set too, for any socket opened without one. Returns
+    False when requests is not installed (nothing to wrap).
+    """
+    import socket
+    timeout = tuple(timeout or HTTP_TIMEOUT)
+    socket.setdefaulttimeout(float(max(timeout)))
+    if requests_module is None:
+        try:
+            import requests as requests_module
+        except ImportError:
+            return False
+    session_cls = requests_module.Session
+    original = getattr(session_cls.request, "_uk_lightning_original", session_cls.request)
+
+    def request(self, method, url, *args, **kwargs):
+        # Session.request(method, url, params, data, headers, cookies, files, auth, timeout, ...)
+        if len(args) > 6:
+            if args[6] is None:
+                args = args[:6] + (request.http_timeout,) + args[7:]
+        elif kwargs.get("timeout") is None:
+            kwargs["timeout"] = request.http_timeout
+        return original(self, method, url, *args, **kwargs)
+
+    request._uk_lightning_original = original
+    request.http_timeout = timeout
+    session_cls.request = request
+    return True
+
+
 def search_products(start: datetime, end: datetime):
     """The real EUMETSAT product search (network); products are opened lazily."""
     key = os.environ.get("EUMETSAT_CONSUMER_KEY", "").strip()
     secret = os.environ.get("EUMETSAT_CONSUMER_SECRET", "").strip()
     if not key or not secret:
         raise RuntimeError("Missing EUMETSAT_CONSUMER_KEY / EUMETSAT_CONSUMER_SECRET. Never commit credentials.")
+    install_http_timeouts()
     import eumdac
 
     datastore = eumdac.DataStore(eumdac.AccessToken((key, secret)))
