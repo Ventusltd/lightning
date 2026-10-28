@@ -225,15 +225,23 @@ behind one (see *Schedule and concurrency*). Writing runs must be on `main`.
    the index exists; the row is never searched and not `shard_lost`; the record is a successful
    `uk-lightning-run-record.v1` with `products_examined ≥ 1`, `slots_parsed: true`,
    `rebuild_day_utc == D`, `query_start/end` = the whole date and `run_utc` after the date ended;
-   every scanned range lies inside D; every flash is valid and **consistent with an examined
-   slot**; no unlisted shard files exist for D. A flash is attributed to the slot of **its
-   product** (the nominal `_OPE_<start>_<end>_` in its id, `collect.flash_slot`), never to the slot
-   its own timestamp falls in: that product must be among `slots_examined_utc` and the flash must
-   lie within `SLOT_EDGE_TOLERANCE_SECONDS` (60 s, the genuineness tolerance) of its nominal slot.
-   Real flashes sit up to about 0.4 s before their product's nominal start (observed 0.361 s), and
-   run 40608108170 refused 2026-08-28 for such a flash (00:00:48.x of the product starting
-   00:00:49, inside a 40 s hole between products). A flash two minutes outside its product, of an
-   unexamined product, or (legacy ids without a product slot) outside every examined span is
+   every scanned range lies inside D; every flash is valid and comes from an **examined
+   product**; no unlisted shard files exist for D. A flash's product (the nominal
+   `_OPE_<start>_<end>_` in its id, `collect.flash_slot`) only decides **whether** it was
+   examined: that product must be among `slots_examined_utc`, else the record is refused. The
+   flash's **own timestamp** decides its UTC date and is checked against examined time
+   (`collect.classify_flash`). It is consistent when it lies within `SLOT_EDGE_TOLERANCE_SECONDS`
+   (60 s) of its product's name span, or inside **any** examined span. A product's name span
+   does not bound its flashes' times. Products that start late in their 10-minute cycle (e.g.
+   `..._OPE_20260412001255_20260412002005_..._O_0002_...`, cycle 00:10-00:20) or right after
+   midnight (`..._OPE_20260828000049_20260828001009_..._O_0001_...`) held flashes more than
+   60 s outside it. Runs 40620556193 and 40657338115 refused those whole dates. A flash of an
+   examined product timed in time **no** examined product covers is **kept and counted**. Its
+   10-minute slot stays unsearched, so the date is `partial` there: never zero, never refused.
+   The result lists it as `unexamined_time_flashes` / `unexamined_time_slots_utc`. One flash
+   listed by two products (same `time_utc` and position) is archived once, as
+   `cross_product_duplicates`. A flash of an unexamined product, or a legacy id without a
+   product slot outside every examined span, is
    still refused. A valid flash timed on the **neighbouring UTC date** (a product straddling
    midnight) is dropped from D and counted as `outside_day` (`collect.py --rebuild-day` drops and
    counts them already; the record carries `outside_day`), never refused. The ingest then runs through the ordinary
@@ -315,7 +323,8 @@ about 337 dates, which would take about 34 more runs. `.github/workflows/backfil
    its reason is recorded in `refused_days`, and every other date is still ingested and
    committed, so one date can never cost the whole run. Then `status.py`'s `backfill` block is
    written with `mode: parallel`, `shards`, `skipped_already_searched_days`, `refused_days`
-   (date → reason) and `outside_day_by_day`, the hourly heartbeat is left
+   (date → reason), `outside_day_by_day`, `unexamined_time_flashes_by_day` and
+   `cross_product_duplicates_by_day`, the hourly heartbeat is left
    untouched, `history.py verify` runs and the job makes **one commit**. If the push is rejected
    because the hourly job committed meanwhile, the job resets to the new main and re-ingests
    from the same records, up to 5 attempts. It never rebases `index.json`.

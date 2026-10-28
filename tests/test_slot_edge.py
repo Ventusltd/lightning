@@ -8,7 +8,8 @@ product's nominal sensing start 00:00:49. The examined spans had a 40 s hole
 date ("lies outside the examined slots") and finalize stopped, leaving six
 other verified records un-ingested. Real LFL flashes sit up to about 0.4 s
 before their product's nominal start (observed: 0.361 s); the genuineness
-tolerance is +-60 s.
+tolerance is +-60 s. (The real 2026-08-28 flash turned out to lie more than 60 s
+outside its product's name span; see tests/test_slot_span.py.)
 
 Synthetic features exist ONLY inside temporary directories (fake products,
 fake decoder); nothing synthetic is ever published.
@@ -192,17 +193,19 @@ class BackfillEdgeTests(unittest.TestCase):
         self.assertEqual(rows(self.root)[TARGET]["count"], 4)
         self.assertEqual(result["outside_day_in_record"], 1)
 
-    def test_flash_two_minutes_outside_its_product_is_still_refused(self):
+    def test_flash_two_minutes_outside_its_product_but_in_examined_time_is_accepted(self):
+        # Contract since claude/fix-slot-span-attribution: a product's name span does
+        # not bound its flashes' times (2026-04-12 / 2026-08-28 refusals); the flash's
+        # OWN time is checked against the examined spans (see tests/test_slot_span.py).
         record = self.rebuild()
         p5 = DAY0 + timedelta(hours=5, seconds=9)
         name = product_name(p5, p5 + timedelta(minutes=10))
-        # inside the examined spans (the 04:50:09 product), but 120 s before its own product
+        # inside the examined spans (the 04:50:09 product), 120 s before its own product
         record["features"].append(build_feature(-2.5, 52.5, p5 - timedelta(seconds=120), name, 9))
         self.write(record)
-        before = (self.root / "index.json").read_bytes()
-        with self.assertRaisesRegex(ValueError, "lies outside the examined slots"):
-            self.backfill()
-        self.assertEqual((self.root / "index.json").read_bytes(), before)
+        result = self.backfill()
+        self.assertEqual(rows(self.root)[TARGET]["count"], 5)
+        self.assertEqual(result["unexamined_time_flashes"], 0)
 
     def test_flash_of_a_product_that_was_not_examined_is_refused(self):
         p5 = DAY0 + timedelta(hours=5, seconds=9)
@@ -274,10 +277,10 @@ class FinalizeContinuesTests(unittest.TestCase):
     def test_one_inconsistent_date_is_skipped_and_the_rest_are_ingested(self):
         self.shards()
 
-        def bad(data):
-            p5 = datetime.combine(date(2026, 10, 21), datetime.min.time(), tzinfo=timezone.utc) + timedelta(hours=5, seconds=9)
-            data["features"].append(build_feature(-2.5, 52.5, p5 - timedelta(seconds=120),
-                                                  product_name(p5, p5 + timedelta(minutes=10)), 9))
+        def bad(data):  # a flash of a product the search never examined: an inconsistent record
+            p = datetime.combine(date(2026, 10, 21), datetime.min.time(), tzinfo=timezone.utc) + timedelta(hours=5, minutes=3)
+            data["features"].append(build_feature(-2.5, 52.5, p + timedelta(seconds=30),
+                                                  product_name(p, p + timedelta(minutes=10)), 9))
         self.tamper("2026-10-21", bad)
         result = self.finalize()
         self.assertEqual(result["stopped"], "archive_refused")

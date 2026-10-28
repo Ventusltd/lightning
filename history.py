@@ -37,7 +37,8 @@ from typing import Iterable
 
 from collect import (
     LOOKBACK_MAX_HOURS, LOOKBACK_MIN_HOURS, PROVIDER, RUN_RECORD_SCHEMA, SLOT_EDGE_TOLERANCE_SECONDS, SLOT_SECONDS,
-    SOURCE_URL, UK_BOUNDS, flash_in_examined_slot, flash_slot, inside_uk_view, parse_utc,
+    FLASH_IN_PRODUCT_SPAN, FLASH_IN_UNEXAMINED_TIME, FLASH_NO_SLOT_OUTSIDE, FLASH_UNEXAMINED_PRODUCT,
+    SOURCE_URL, UK_BOUNDS, classify_flash, flash_slot, inside_uk_view, parse_utc,
 )
 
 SCHEMA_INDEX = "uk-lightning-history-index.v2"
@@ -274,6 +275,36 @@ def slots_proved_by_flashes(records: list[dict]) -> int:
         seconds = int(math.floor((anchor - day_start).total_seconds())) - SLOT_PHASE_SECONDS
         slots.add(seconds // SLOT_SECONDS)
     return min(DAY_SECONDS, len(slots) * SLOT_SECONDS)
+
+
+def _phase_slot_start(moment: datetime) -> str:
+    """Start (UTC, HH:M0:09 phase) of the 10-minute LI slot holding ``moment``."""
+    anchor = datetime.combine(moment.date(), time.min, tzinfo=timezone.utc) + timedelta(seconds=SLOT_PHASE_SECONDS)
+    slots = math.floor((moment - anchor).total_seconds() / SLOT_SECONDS)
+    return format_utc(anchor + timedelta(seconds=slots * SLOT_SECONDS))
+
+
+def _drop_cross_product_duplicates(found: dict[str, dict], kinds: dict[str, str]) -> int:
+    """Remove copies of one flash (same time_utc and position) listed by more than
+    one product, keeping the copy inside its own product's span (then the lowest
+    id). Ids already make a flash unique within its product; this keeps a flash
+    timed outside its product's span from being counted again when the product
+    covering that time lists it too. Returns how many copies were removed."""
+    groups: dict[tuple, list[str]] = {}
+    for fid, feature in found.items():
+        key = (feature["properties"]["time_utc"], tuple(feature["geometry"]["coordinates"]))
+        groups.setdefault(key, []).append(fid)
+    removed = 0
+    for ids in groups.values():
+        if len({i.rsplit(":", 1)[0] for i in ids}) < 2:
+            continue
+        keep = min(ids, key=lambda i: (kinds.get(i) != FLASH_IN_PRODUCT_SPAN, i))
+        product = keep.rsplit(":", 1)[0]
+        for fid in ids:
+            if fid != keep and fid.rsplit(":", 1)[0] != product:
+                del found[fid]
+                removed += 1
+    return removed
 
 
 def coverage_for(scanned: int) -> str:
@@ -1142,21 +1173,41 @@ def backfill_day(
     # is not refused: it is dropped from this date and counted as outside_day.
     validity_cutoff = min(cutoff, date.fromisoformat(day) - timedelta(days=1))
     found: dict[str, dict] = {}
-    outside_day = 0
+    kinds: dict[str, str] = {}
+    outside_day = duplicate_ids = 0
     for feature in record.get("features") or []:
         valid = validate_feature(feature, now, validity_cutoff)
         if valid is None:
             raise ValueError(f"{rebuild_record}: invalid observation {feature.get('id') if isinstance(feature, dict) else feature!r}")
+        # The flash's OWN time decides its UTC date (exactly one); a flash of the
+        # neighbouring date is dropped from this date and counted, never refused.
         if valid[0] != day:
             outside_day += 1
             continue
-        # Attributed to its product's nominal slot: that product must have been
-        # examined and the flash must lie within SLOT_EDGE_TOLERANCE_SECONDS of it.
-        if not flash_in_examined_slot(feature, examined, spans):
+        # Its product decides only whether it was examined; its own time is checked
+        # against its product's nominal span +- SLOT_EDGE_TOLERANCE_SECONDS, then
+        # against every examined span (collect.classify_flash).
+        kind = classify_flash(feature, examined, spans)
+        if kind == FLASH_UNEXAMINED_PRODUCT:
             raise ValueError(f"{rebuild_record}: flash {feature['id']} lies outside the examined slots "
-                             f"(its product's nominal slot +- {SLOT_EDGE_TOLERANCE_SECONDS} s)")
-        found.setdefault(feature["id"], feature)
+                             "(its product is not among slots_examined_utc)")
+        if kind == FLASH_NO_SLOT_OUTSIDE:
+            raise ValueError(f"{rebuild_record}: flash {feature['id']} lies outside the examined slots "
+                             "(no product slot in its id and outside every examined span)")
+        if feature["id"] in found:
+            duplicate_ids += 1
+            continue
+        found[feature["id"]] = feature
+        kinds[feature["id"]] = kind
+    cross_product_duplicates = _drop_cross_product_duplicates(found, kinds)
     expected_seconds = scanned_seconds_for_day(windows, date.fromisoformat(day))
+    # A genuine flash of an examined product timed in time NO examined product
+    # covers is kept and counted; its slot stays unsearched, so the date is
+    # partial there (never zero, never extended to time nobody searched).
+    unexamined = sorted(f["properties"]["time_utc"] for i, f in found.items() if kinds[i] == FLASH_IN_UNEXAMINED_TIME)
+    if unexamined and expected_seconds >= DAY_SECONDS:  # impossible: full coverage covers every moment
+        raise ValueError(f"{rebuild_record}: flashes outside every examined span on a fully searched date")
+    unexamined_slots = sorted({_phase_slot_start(parse_utc(t)) for t in unexamined})
 
     disk, _ = _discover_shards(archive_dir, cutoff, now.date())
     if day in disk:
@@ -1197,6 +1248,12 @@ def backfill_day(
         # plus any still present in the record and dropped here.
         "outside_day": outside_day + int(record.get("outside_day") or 0),
         "outside_day_in_record": outside_day,
+        # Kept and counted flashes timed in unsearched time: their slots stay unknown.
+        "unexamined_time_flashes": len(unexamined),
+        "unexamined_time_slots_utc": unexamined_slots,
+        # Same flash (time and position) listed by two products: archived once.
+        "cross_product_duplicates": cross_product_duplicates,
+        "duplicate_ids_in_record": duplicate_ids,
         "files_changed": result["files_changed"], "split_days": result["split_days"],
         "archived_observations": index_after["archived_observations"],
         "index_generated_utc": index_after["generated_utc"],
@@ -1261,7 +1318,10 @@ def main(argv=None):
         row = result["row"]
         print(f"Backfilled {result['date']}: coverage {row['coverage']} ({row['scanned_seconds']} s searched), "
               f"count {row['count']}, {len(result['unscanned_ranges'])} unsearched gap(s) left unknown, "
-              f"{result['outside_day']} flash(es) outside the date dropped; verify ok.")
+              f"{result['outside_day']} flash(es) outside the date dropped, "
+              f"{result['unexamined_time_flashes']} flash(es) kept in unsearched slot(s) "
+              f"{result['unexamined_time_slots_utc']}, {result['cross_product_duplicates']} cross-product "
+              "duplicate(s) removed; verify ok.")
         if result["integrity"]["state"] != "ok":
             print(result["integrity"]["alert"], file=sys.stderr)
         return 0
