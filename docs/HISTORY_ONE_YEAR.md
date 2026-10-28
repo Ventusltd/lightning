@@ -225,8 +225,18 @@ behind one (see *Schedule and concurrency*). Writing runs must be on `main`.
    the index exists; the row is never searched and not `shard_lost`; the record is a successful
    `uk-lightning-run-record.v1` with `products_examined ≥ 1`, `slots_parsed: true`,
    `rebuild_day_utc == D`, `query_start/end` = the whole date and `run_utc` after the date ended;
-   every scanned range lies inside D; every flash is valid, on D and **inside an examined slot**;
-   no unlisted shard files exist for D. The ingest then runs through the ordinary
+   every scanned range lies inside D; every flash is valid and **consistent with an examined
+   slot**; no unlisted shard files exist for D. A flash is attributed to the slot of **its
+   product** (the nominal `_OPE_<start>_<end>_` in its id, `collect.flash_slot`), never to the slot
+   its own timestamp falls in: that product must be among `slots_examined_utc` and the flash must
+   lie within `SLOT_EDGE_TOLERANCE_SECONDS` (60 s, the genuineness tolerance) of its nominal slot.
+   Real flashes sit up to about 0.4 s before their product's nominal start (observed 0.361 s), and
+   run 40608108170 refused 2026-08-28 for such a flash (00:00:48.x of the product starting
+   00:00:49, inside a 40 s hole between products). A flash two minutes outside its product, of an
+   unexamined product, or (legacy ids without a product slot) outside every examined span is
+   still refused. A valid flash timed on the **neighbouring UTC date** (a product straddling
+   midnight) is dropped from D and counted as `outside_day` (`collect.py --rebuild-day` drops and
+   counts them already; the record carries `outside_day`), never refused. The ingest then runs through the ordinary
    `archive_observations` path (same dedupe, sorting, 8 MiB hourly split and **25 000 000-byte
    `max_shard_bytes` hard cap**) and `verify` on a **staging copy** that replaces `data/history`
    only when both succeed and the new row's `scanned_seconds` equals the record's examined
@@ -300,8 +310,12 @@ about 337 dates, which would take about 34 more runs. `.github/workflows/backfil
    resets to the newest `origin/main` and ingests the records **sequentially**, newest first,
    with `history.backfill_day`. A record whose sha256 differs from its shard summary is refused.
    A date that is no longer never searched is skipped, not refused, so the step is idempotent.
-   The first refusal stops the ingest. Then `status.py`'s `backfill` block is written with
-   `mode: parallel`, `shards` and `skipped_already_searched_days`, the hourly heartbeat is left
+   A refused date (a gate of `history.backfill_day`, a record changed in transit, or any other
+   error while ingesting it) is **skipped only**: it stays never searched (unknown, not zero),
+   its reason is recorded in `refused_days`, and every other date is still ingested and
+   committed, so one date can never cost the whole run. Then `status.py`'s `backfill` block is
+   written with `mode: parallel`, `shards`, `skipped_already_searched_days`, `refused_days`
+   (date → reason) and `outside_day_by_day`, the hourly heartbeat is left
    untouched, `history.py verify` runs and the job makes **one commit**. If the push is rejected
    because the hourly job committed meanwhile, the job resets to the new main and re-ingests
    from the same records, up to 5 attempts. It never rebases `index.json`.

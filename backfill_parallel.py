@@ -219,8 +219,12 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
     shard's summary with the same sha256 (an artifact that changed on the way is
     refused). A date the index no longer marks never searched (filled by another
     backfill, or out of retention) is skipped, not refused, so a re-ingest on a
-    newer main after a rejected push is idempotent. The first refusal stops the
-    ingest; dates not filled stay never searched (unknown, not zero).
+    newer main after a rejected push is idempotent. A refused date (a gate of
+    ``history.backfill_day``, a record that changed in transit, or any other
+    error while ingesting it) is skipped ONLY: it stays never searched (unknown,
+    not zero), its reason is recorded in ``refused_days`` and the stop becomes
+    ``archive_refused``, while every other date is still ingested and committed.
+    ``backfill_day`` stages its writes, so a refused date changes nothing.
     """
     records_dir, archive_dir = Path(records_dir), Path(archive_dir)
     expected = split_shards(plan_dates, shards) if plan_dates else []
@@ -247,15 +251,17 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
     filled, skipped = [], []
     unparsed_by_day: dict[str, int] = {}
     retries_by_day: dict[str, dict] = {}
-    refused = None
+    outside_by_day: dict[str, int] = {}
+    refused: dict[str, str] = {}
     for day in plan_dates:
         item = listed.get(day)
         if item is None:
             continue
         record = records_dir / f"rb-{day}.json"
         if not record.exists() or sha256_file(record) != item.get("sha256"):
-            refused = f"{day}: record missing or sha256 differs from its shard summary"
-            break
+            refused[day] = "record missing or sha256 differs from its shard summary"
+            print(f"REFUSED {day}: {refused[day]} (date left unknown; continuing)", file=sys.stderr)
+            continue
         index = json.loads((archive_dir / "index.json").read_text(encoding="utf-8"))
         row = next((r for r in index.get("days") or [] if r.get("date") == day), None)
         lost = {str(e.get("date")) for e in (index.get("integrity") or {}).get("lost_days") or [] if isinstance(e, dict)}
@@ -264,9 +270,10 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
             continue
         try:
             result = history.backfill_day(archive_dir, day, now=now, rebuild_record=record)
-        except ValueError as exc:
-            refused = f"{day}: {exc}"
-            break
+        except Exception as exc:  # noqa: BLE001 - one date must never cost the whole run
+            refused[day] = str(exc) if isinstance(exc, ValueError) else f"{type(exc).__name__}: {exc}"
+            print(f"REFUSED {day}: {refused[day]} (date left unknown; continuing)", file=sys.stderr)
+            continue
         row = result["row"]
         record_obj = json.loads(record.read_text(encoding="utf-8"))
         unparsed = int(record_obj.get("products_unparsed") or 0)
@@ -275,13 +282,15 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
         retry = status_mod.retry_counts(record_obj.get("download_retries"))
         if retry and (retry.get("retries") or retry.get("products_failed")):
             retries_by_day[day] = retry
+        if result.get("outside_day"):
+            outside_by_day[day] = int(result["outside_day"])
         print(f"Backfilled {day}: coverage {row['coverage']} ({row['scanned_seconds']} s searched), count {row['count']}, "
               f"{len(result['unscanned_ranges'])} unsearched gap(s) left unknown, {unparsed} unparsed product(s).",
               file=sys.stderr)
         filled.append(day)
     if refused:
         stops.append("archive_refused")
-        errors.insert(0, refused)
+        errors[:0] = [f"{day}: {reason}" for day, reason in refused.items()]
     stopped = worst(stops)
     error = "; ".join(errors)[:2000]
     checked = history.verify_archive(archive_dir)
@@ -289,9 +298,10 @@ def finalize(*, plan_dates: list[str], shards: int, records_dir: Path, archive_d
     new_status = status_mod.backfill_status(status_mod._load(status_path), now=now, planned=plan_dates,
                                             filled=filled, stopped=stopped, error=error, index=index,
                                             unparsed_by_day=unparsed_by_day, retries_by_day=retries_by_day)
-    new_status["backfill"].update(mode="parallel", shards=len(expected), skipped_already_searched_days=skipped)
+    new_status["backfill"].update(mode="parallel", shards=len(expected), skipped_already_searched_days=skipped,
+                                  refused_days=dict(refused), outside_day_by_day=outside_by_day)
     status_mod.write_status(status_path, new_status)
-    return {"stopped": stopped, "error": error, "filled": filled, "skipped": skipped,
+    return {"stopped": stopped, "error": error, "filled": filled, "skipped": skipped, "refused": dict(refused),
             "remaining_unknown": new_status["backfill"]["remaining_unknown_days"], "verify": checked}
 
 
@@ -411,6 +421,7 @@ def main(argv=None) -> int:
         if args.filled_out:
             args.filled_out.write_text("".join(d + "\n" for d in result["filled"]), encoding="utf-8")
         print(f"finalize: {result['stopped']} filled={len(result['filled'])} skipped={len(result['skipped'])} "
+              f"refused={len(result['refused'])} "
               f"remaining_unknown={len(result['remaining_unknown'])}", file=sys.stderr)
         _github_output({"stopped": result["stopped"], "filled": len(result["filled"]),
                         "range": ",".join(result["filled"]), "error": result["error"]})

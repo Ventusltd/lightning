@@ -271,7 +271,12 @@ class FinalizeTests(unittest.TestCase):
         rows = index_rows(self.root)
         self.assertEqual(rows["2026-10-23"]["count"], 1)  # newer dates before the refusal are kept
         self.assertIsNone(rows["2026-10-22"]["count"])
-        self.assertIsNone(rows["2026-10-18"]["count"])  # the ingest stops at the first refusal
+        # only the refused date is skipped; the ingest continues with the older dates
+        self.assertEqual(rows["2026-10-18"]["count"], 1)
+        self.assertEqual(result["filled"], [d for d in self.plan if d != "2026-10-22"])
+        status = json.loads(self.status.read_text())["backfill"]
+        self.assertEqual(status["remaining_unknown_days"], ["2026-10-22"])
+        self.assertIn("sha256", status["refused_days"]["2026-10-22"])
 
     def test_reingest_on_a_newer_main_is_idempotent(self):
         self.shards()
