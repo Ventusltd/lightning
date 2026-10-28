@@ -280,7 +280,7 @@ class ShardTests(Base):
         make_archive(root, NOW - timedelta(hours=1), date(2026, 10, 26))
         dates = ["2026-10-20", "2026-10-19"]
         fakes = {"2026-10-20": FakeEumetsat(no_body={3}), "2026-10-19": FakeEumetsat()}
-        collector = lambda day, record, log: collect.rebuild_day_record(day, record, now=NOW, downloader=fakes[day])
+        collector = lambda day, record, log, timeout=None: collect.rebuild_day_record(day, record, now=NOW, downloader=fakes[day])
         summary = bp.run_shard(1, dates, out, budget_minutes=290, collector=collector)
         self.assertEqual((summary["stopped"], len(summary["collected"])), ("completed", 2))
         result = bp.finalize(plan_dates=dates, shards=1, records_dir=out, archive_dir=root,
@@ -296,7 +296,7 @@ class ShardTests(Base):
     def test_a_date_over_the_threshold_stops_the_shard_and_stays_unknown(self):
         out = self.base / "records"
         fake = FakeEumetsat(no_body=set(range(40)))
-        collector = lambda day, record, log: collect.rebuild_day_record(day, record, now=NOW, downloader=fake)
+        collector = lambda day, record, log, timeout=None: collect.rebuild_day_record(day, record, now=NOW, downloader=fake)
         summary = bp.run_shard(1, ["2026-10-20", "2026-10-19"], out, budget_minutes=290, collector=collector)
         self.assertEqual(summary["stopped"], "eumetsat_error")
         self.assertEqual(summary["collected"], [])

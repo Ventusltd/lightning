@@ -282,8 +282,15 @@ about 337 dates, which would take about 34 more runs. `.github/workflows/backfil
    succeeds, so a killed search leaves no partial record. A `shard-K.json` summary (dates,
    collected records with their sha256, stop reason) is rewritten after every date. Each shard
    waits 20 s × (K − 1) before its first search. No new date starts after
-   `SHARD_BUDGET_MINUTES` (290), inside the 340-minute job timeout. The records are uploaded as
-   the artifact `backfill-shard-K` (`if: always()`, 7 days).
+   `SHARD_BUDGET_MINUTES` (170). A date still running at `SHARD_HARD_STOP_MINUTES` (190), or
+   after 45 minutes on its own, is killed and left unknown (`time_budget`, a warning); the search
+   step has a 195-minute backstop and the job a 200-minute timeout, so the records always upload
+   as the artifact `backfill-shard-K` (`if: always()`, 7 days). Every HTTP call made by
+   `collect.py` (token, search, product download) has an explicit (connect, read) timeout of
+   (15, 60) s, because eumdac passes none: a stalled read raises a transient read timeout, which
+   is retried, and a product still timing out is UNPARSED (the per-day unparsed threshold still
+   applies). Run 40564980740's shard 3 hung for over 5 h on such a read and held finalize for
+   every shard.
 3. **Stop cleanly.** The first EUMETSAT error in a shard (HTTP 429, outage, no products) stops
    that shard, which uploads its records and then fails. `fail-fast` then cancels the other
    shards. A cancelled shard writes `cancelled`, deletes its partial record and still uploads

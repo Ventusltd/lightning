@@ -45,6 +45,14 @@ SHARD_SCHEMA = "uk-lightning-backfill-shard.v1"
 # Severity of a stop, worst last. Only completed / time_budget are "green".
 STOP_ORDER = ("completed", "time_budget", "cancelled", "shard_missing", "eumetsat_error", "archive_refused")
 HOURLY_ACTIVE = ("in_progress", "queued", "requested", "waiting", "pending")
+# No new date starts after SHARD_BUDGET_MINUTES (about 18.5 min per whole-day
+# search, so a date started just before the budget ends near budget + 20).
+DEFAULT_SHARD_BUDGET_MINUTES = 170
+# A date still running this many minutes after the budget is killed (left
+# unknown) so the shard always uploads its records inside the job timeout (200).
+HARD_STOP_GRACE_MINUTES = 20
+# No single whole-day search may run longer than this (2.4x the usual 18.5 min).
+DATE_TIMEOUT_MINUTES = 45
 
 
 def utc_now() -> datetime:
@@ -112,11 +120,18 @@ def _on_term(signum, frame):  # GitHub cancels a job with SIGINT, then SIGTERM
     raise Cancelled(f"signal {signum}")
 
 
-def collect_subprocess(day: str, record: Path, log: Path) -> None:
-    """Run the real ``collect.py --rebuild-day``; raise RuntimeError on any failure."""
+def collect_command(day: str, record: Path) -> list[str]:
+    return [sys.executable, "collect.py", "--rebuild-day", day, "--run-record", str(record)]
+
+
+def collect_subprocess(day: str, record: Path, log: Path, timeout: float | None = None) -> None:
+    """Run the real ``collect.py --rebuild-day``; raise RuntimeError on any failure.
+
+    ``timeout`` (seconds) is a wall-clock limit: the child is killed and
+    ``subprocess.TimeoutExpired`` propagates (the date stays unknown).
+    """
     with open(log, "w", encoding="utf-8") as err:
-        code = subprocess.call([sys.executable, "collect.py", "--rebuild-day", day, "--run-record", str(record)],
-                               stdin=subprocess.DEVNULL, stderr=err)
+        code = subprocess.call(collect_command(day, record), stdin=subprocess.DEVNULL, stderr=err, timeout=timeout)
     text = Path(log).read_text(encoding="utf-8", errors="replace")
     sys.stderr.write(text)
     if code != 0:
@@ -125,12 +140,19 @@ def collect_subprocess(day: str, record: Path, log: Path) -> None:
 
 
 def run_shard(shard: int, dates: list[str], out_dir: Path, *, budget_minutes: float, stagger_seconds: float = 0,
-              collector=None, clock=time.monotonic, sleep=time.sleep, now=utc_now) -> dict:
+              collector=None, clock=time.monotonic, sleep=time.sleep, now=utc_now,
+              hard_stop_minutes: float | None = None, date_timeout_minutes: float = DATE_TIMEOUT_MINUTES) -> dict:
     """Search each date of one shard, newest first, writing only run records.
 
     A record is renamed into ``out_dir`` only after collect.py succeeded, so a
     killed or failed search never leaves a partial ``rb-D.json``. The summary is
     rewritten after every date, so even a cancelled job uploads an accurate one.
+
+    Wall clock: no new date starts after ``budget_minutes``; a date in flight is
+    killed after ``date_timeout_minutes`` or at ``hard_stop_minutes`` (default
+    budget + HARD_STOP_GRACE_MINUTES) since the shard started, whichever comes
+    first. A killed date stops the shard as ``time_budget`` (it stays unknown);
+    the records already collected are kept and uploaded.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -141,6 +163,10 @@ def run_shard(shard: int, dates: list[str], out_dir: Path, *, budget_minutes: fl
                "budget_minutes": budget_minutes,
                "note": "Only dates listed in 'collected' have a record; every other date stays never searched."}
     write_json_atomic(summary_path, summary)
+    if hard_stop_minutes is None:
+        hard_stop_minutes = budget_minutes + HARD_STOP_GRACE_MINUTES
+    summary["hard_stop_minutes"] = hard_stop_minutes
+    summary["date_timeout_minutes"] = date_timeout_minutes
     started = clock()
     stopped, error = "completed", None
     try:
@@ -153,11 +179,19 @@ def run_shard(shard: int, dates: list[str], out_dir: Path, *, budget_minutes: fl
             tmp = out_dir / f".partial-rb-{day}.json"
             final = out_dir / f"rb-{day}.json"
             began = clock()
+            limit = max(1.0, min(date_timeout_minutes * 60, hard_stop_minutes * 60 - (began - started)))
             try:
-                collector(day, tmp, out_dir / f"rb-{day}.log")
+                collector(day, tmp, out_dir / f"rb-{day}.log", timeout=limit)
                 record = json.loads(tmp.read_text(encoding="utf-8"))
                 if record.get("rebuild_day_utc") != day or record.get("outcome") != "success":
                     raise RuntimeError(f"collect.py left no successful rebuild record for {day}")
+            except subprocess.TimeoutExpired:
+                tmp.unlink(missing_ok=True)
+                stopped = "time_budget"
+                error = (f"{day}: whole-day search killed after {limit / 60:.1f} min (wall-clock limit; "
+                         f"date left unknown, not zero)")
+                print(f"shard {shard}: {error}", file=sys.stderr)
+                break
             except Exception as exc:  # noqa: BLE001 - every EUMETSAT failure stops the shard
                 tmp.unlink(missing_ok=True)
                 stopped, error = "eumetsat_error", f"{day}: {exc}"
@@ -321,7 +355,12 @@ def main(argv=None) -> int:
     s.add_argument("--shard", type=int, required=True)
     s.add_argument("--dates", required=True, help="Space-separated UTC dates, newest first")
     s.add_argument("--out-dir", type=Path, required=True)
-    s.add_argument("--budget-minutes", type=float, default=290)
+    s.add_argument("--budget-minutes", type=float, default=DEFAULT_SHARD_BUDGET_MINUTES,
+                   help="No new date starts after this many minutes")
+    s.add_argument("--hard-stop-minutes", type=float, default=None,
+                   help="Kill a date still running at this many minutes (default budget + 20)")
+    s.add_argument("--date-timeout-minutes", type=float, default=DATE_TIMEOUT_MINUTES,
+                   help="Kill a single whole-day search after this many minutes")
     s.add_argument("--stagger-step-seconds", type=float, default=20,
                    help="Shard K pauses step x (K - 1) seconds before its first search (fair use)")
     f = sub.add_parser("finalize", help="Ingest all shard records, write status, verify")
@@ -359,7 +398,8 @@ def main(argv=None) -> int:
         signal.signal(signal.SIGINT, _on_term)
         stagger = max(0.0, args.stagger_step_seconds) * (args.shard - 1)
         summary = run_shard(args.shard, args.dates.split(), args.out_dir, budget_minutes=args.budget_minutes,
-                            stagger_seconds=stagger)
+                            stagger_seconds=stagger, hard_stop_minutes=args.hard_stop_minutes,
+                            date_timeout_minutes=args.date_timeout_minutes)
         print(f"shard {args.shard}: {summary['stopped']}, {len(summary['collected'])}/{len(summary['dates'])} "
               f"date(s) searched{'; ' + summary['error'] if summary['error'] else ''}", file=sys.stderr)
         _github_output({"stopped": summary["stopped"], "collected": len(summary["collected"]),
