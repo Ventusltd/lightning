@@ -1,9 +1,17 @@
 """The EUMETSAT search (and its paging) is retried on transient errors (run 40690260149)."""
 import unittest
 
-import requests
-
 import collect
+
+
+# Stand-ins named like the requests classes: errors are classified by class name,
+# and CI runs without the requests package installed.
+class ConnectionError(Exception):  # noqa: A001
+    pass
+
+
+class ReadTimeout(Exception):
+    pass
 
 
 class FakeProducts:
@@ -32,22 +40,22 @@ class SearchRetryTests(unittest.TestCase):
         return result, calls, waits
 
     def test_read_timeout_on_search_is_retried(self):
-        timeout = requests.exceptions.ConnectionError("HTTPSConnectionPool(host='api.eumetsat.int', port=443): Read timed out.")
+        timeout = ConnectionError("HTTPSConnectionPool(host='api.eumetsat.int', port=443): Read timed out.")
         result, calls, waits = self.run_with([timeout, FakeProducts(["a", "b"])])
         self.assertEqual(result, ["a", "b"])
         self.assertEqual(len(calls), 2)
         self.assertEqual(waits, [2.0])
 
     def test_timeout_while_paging_is_retried_and_results_are_listed(self):
-        paged = FakeProducts(["x"], fail_on_iter=requests.exceptions.ReadTimeout("paging"))
+        paged = FakeProducts(["x"], fail_on_iter=ReadTimeout("paging"))
         result, calls, _ = self.run_with([paged, FakeProducts(["x", "y"])])
         self.assertEqual(result, ["x", "y"])
         self.assertIsInstance(result, list)
         self.assertEqual(len(calls), 2)
 
     def test_gives_up_after_the_retry_budget(self):
-        timeout = requests.exceptions.ReadTimeout("still down")
-        with self.assertRaises(requests.exceptions.ReadTimeout):
+        timeout = ReadTimeout("still down")
+        with self.assertRaises(ReadTimeout):
             self.run_with([timeout] * (collect.TRANSIENT_RETRIES + 1))
 
     def test_fatal_errors_are_not_retried(self):
