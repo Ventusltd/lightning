@@ -82,3 +82,29 @@ jobs:
           path: ${{ runner.temp }}/reproduction.*
           if-no-files-found: ignore
           retention-days: 30
+
+  # The collector-stale issue (ci/collector_health.py, docs/OPERATIONS.md).
+  # This run is started by every hourly AND backfill completion, so a backfill
+  # also reports an hourly collector that has stopped. Only this job may write
+  # issues; the data checks above stay read-only.
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: |
+            ci/collector_health.py
+            data/status.json
+          sparse-checkout-cone-mode: false
+      - name: Collector health issue (collector-stale)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE: verify-lightning-data run ${{ github.run_id }} (${{ github.event_name }})
+        run: |
+          python3 ci/collector_health.py --status data/status.json --issue \
+            --source "$SOURCE" --summary "$GITHUB_STEP_SUMMARY"
