@@ -1,6 +1,6 @@
 {
  "schema": "uk-lightning-status.v1",
- "written_utc": "2026-10-29T18:33:41.475Z",
+ "written_utc": "2026-10-29T20:32:49.106Z",
  "health": "ok",
  "freshness": "ok",
  "integrity": {
@@ -10,15 +10,15 @@
   "quarantined_observations": 0,
   "source": "this_run"
  },
- "last_attempt_utc": "2026-10-29T18:31:24.879Z",
+ "last_attempt_utc": "2026-10-29T20:31:15.618Z",
  "last_attempt_outcome": "success",
  "last_error": null,
  "consecutive_failures": 0,
- "last_successful_run_utc": "2026-10-29T18:31:24.879Z",
- "last_successful_scan_start_utc": "2026-10-29T12:31:24.879Z",
- "last_successful_scan_end_utc": "2026-10-29T18:30:05.000Z",
- "last_query_start_utc": "2026-10-29T12:31:24.879Z",
- "last_query_end_utc": "2026-10-29T18:31:24.879Z",
+ "last_successful_run_utc": "2026-10-29T20:31:15.618Z",
+ "last_successful_scan_start_utc": "2026-10-29T14:31:15.618Z",
+ "last_successful_scan_end_utc": "2026-10-29T20:30:05.000Z",
+ "last_query_start_utc": "2026-10-29T14:31:15.618Z",
+ "last_query_end_utc": "2026-10-29T20:31:15.618Z",
  "last_lookback_hours": 6.0,
  "last_lookback_source": "status",
  "last_lookback_capped": false,
@@ -39,18 +39,6 @@
   "reasons": {}
  },
  "last_slots_examined_utc": [
-  "2026-10-29T12:30:05.000Z",
-  "2026-10-29T12:40:05.000Z",
-  "2026-10-29T12:50:05.000Z",
-  "2026-10-29T13:00:05.000Z",
-  "2026-10-29T13:10:05.000Z",
-  "2026-10-29T13:20:05.000Z",
-  "2026-10-29T13:30:05.000Z",
-  "2026-10-29T13:40:05.000Z",
-  "2026-10-29T13:50:05.000Z",
-  "2026-10-29T14:00:05.000Z",
-  "2026-10-29T14:10:05.000Z",
-  "2026-10-29T14:20:05.000Z",
   "2026-10-29T14:30:05.000Z",
   "2026-10-29T14:40:05.000Z",
   "2026-10-29T14:50:05.000Z",
@@ -74,19 +62,31 @@
   "2026-10-29T17:50:05.000Z",
   "2026-10-29T18:00:05.000Z",
   "2026-10-29T18:10:05.000Z",
-  "2026-10-29T18:20:05.000Z"
+  "2026-10-29T18:20:05.000Z",
+  "2026-10-29T18:30:05.000Z",
+  "2026-10-29T18:40:05.000Z",
+  "2026-10-29T18:50:05.000Z",
+  "2026-10-29T19:00:05.000Z",
+  "2026-10-29T19:10:05.000Z",
+  "2026-10-29T19:20:05.000Z",
+  "2026-10-29T19:30:05.000Z",
+  "2026-10-29T19:40:05.000Z",
+  "2026-10-29T19:50:05.000Z",
+  "2026-10-29T20:00:05.000Z",
+  "2026-10-29T20:10:05.000Z",
+  "2026-10-29T20:20:05.000Z"
  ],
  "last_scanned_ranges": [
   {
-   "start_utc": "2026-10-29T12:31:24.879Z",
-   "end_utc": "2026-10-29T18:30:05.000Z"
+   "start_utc": "2026-10-29T14:31:15.618Z",
+   "end_utc": "2026-10-29T20:30:05.000Z"
   }
  ],
  "last_unscanned_ranges": [],
- "last_tail_unobserved_seconds": 79,
+ "last_tail_unobserved_seconds": 70,
  "feed": {
-  "features": 387,
-  "total_before_display_cap": 387,
+  "features": 382,
+  "total_before_display_cap": 382,
   "latest_detection_utc": "2026-10-29T09:31:50.995Z",
   "incoming_features": 0
  },
@@ -105,7 +105,7 @@
   ],
   "lost_days": [],
   "dropped_lost_day": 0,
-  "index_generated_utc": "2026-10-29T18:33:40.155Z"
+  "index_generated_utc": "2026-10-29T20:32:47.325Z"
  },
  "thresholds_hours": {
   "warn": 6,
@@ -118,27 +118,27 @@
    "17 * * * *",
    "47 * * * *"
   ],
-  "next_expected_run_utc": "2026-10-29T18:47:00.000Z",
-  "late_after_utc": "2026-10-29T20:01:24.879Z",
+  "next_expected_run_utc": "2026-10-29T20:47:00.000Z",
+  "late_after_utc": "2026-10-29T22:01:15.618Z",
   "this_run": {
    "trigger": "workflow_dispatch",
-   "run_id": "40931470803",
-   "run_created_utc": "2026-10-29T18:30:34.000Z",
-   "job_started_utc": "2026-10-29T18:30:46.000Z",
+   "run_id": "40949620121",
+   "run_created_utc": "2026-10-29T20:30:21.000Z",
+   "job_started_utc": "2026-10-29T20:30:33.000Z",
    "queued_minutes": 0.2,
-   "attempt_utc": "2026-10-29T18:31:24.879Z",
+   "attempt_utc": "2026-10-29T20:31:15.618Z",
    "outcome": "success"
   },
   "gap_before_this_run": {
-   "previous_attempt_utc": "2026-10-29T16:33:22.680Z",
+   "previous_attempt_utc": "2026-10-29T18:31:24.879Z",
    "previous_attempt_outcome": "success",
-   "minutes": 118.0,
-   "minutes_until_run_created": 117.2,
+   "minutes": 119.8,
+   "minutes_until_run_created": 118.9,
    "hourly_slots_without_a_run": 2,
    "cause": "no_scheduled_run_until_manual_start"
   },
-  "explanation": "Last collector run 29 Oct 18:31 UTC (workflow_dispatch, success). Before it, no run for 1 h 58 min (since 29 Oct 16:33 UTC): 2 hourly slots produced no run; this run was started manually.",
-  "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 29 Oct 18:31 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
+  "explanation": "Last collector run 29 Oct 20:31 UTC (workflow_dispatch, success). Before it, no run for 2 h 00 min (since 29 Oct 18:31 UTC): 2 hourly slots produced no run; this run was started manually.",
+  "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 29 Oct 20:31 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
  },
  "backfill": {
   "last_run_utc": "2026-10-28T19:59:39.764Z",
