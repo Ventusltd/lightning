@@ -1,7 +1,8 @@
 name: Verify UK lightning data on main
 # Deep check of the COMMITTED data on main: index rows vs shard bytes, sha256
 # and counts (history.py verify), every month grid recounted from its shards
-# (grid.py verify --deep), and the feed/status JSON (ci/verify_data.py).
+# (grid.py verify --deep), the feed/status JSON (ci/verify_data.py) and an
+# independent recomputation of every row, total and grid (reproduce.py check).
 #
 # Triggers. The hourly and backfill workflows push with GITHUB_TOKEN, and
 # GitHub starts NO workflow for a GITHUB_TOKEN push, so `push: data/**` alone
@@ -9,11 +10,21 @@ name: Verify UK lightning data on main
 # data-writing workflows, on main) covers every bot data commit; it runs this
 # file from main and checks out the newest main. The writers themselves run
 # the quick check (ci/verify_data.py --staged) before every push.
+# A pull request that changes a checker (or this file) runs the same deep check
+# on its own head commit, so a new or changed step is proven before it guards main.
 on:
   push:
     branches: [main]
     paths:
       - "data/**"
+      - "reproduce.py"
+  pull_request:
+    paths:
+      - "reproduce.py"
+      - "history.py"
+      - "grid.py"
+      - "ci/verify_data.py"
+      - ".github/workflows/verify-lightning-data.yml"
   workflow_run:
     workflows:
       - "UK lightning optical flashes"
@@ -27,9 +38,10 @@ permissions:
   contents: read
 
 # Its own group (never uk-lightning-update / uk-lightning-backfill): a newer
-# data commit supersedes a queued check of an older one.
+# data commit supersedes a queued check of an older one. A pull request gets
+# its own group, so it can never cancel the check of a data commit on main.
 concurrency:
-  group: uk-lightning-data-verify
+  group: uk-lightning-data-verify${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.number) || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -39,8 +51,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The newest main, not the SHA the triggering run started from.
-          ref: main
+          # The newest main, not the SHA the triggering run started from; a
+          # pull request checks its own head.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || 'main' }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -50,3 +63,22 @@ jobs:
         run: python grid.py verify --deep --archive-dir data/history
       - name: Feed, status, archive and grids (ci/verify_data.py --deep)
         run: python ci/verify_data.py --deep
+      - name: Independent recomputation from the committed files (reproduce.py check)
+        # Shares no code with the writer (docs/METHODS.md, section 8); prints the
+        # headline numbers and summary_sha256 for this commit.
+        # The summary is written on failure too; the step's exit code is the check's.
+        run: |
+          set +e
+          python reproduce.py check --json "$RUNNER_TEMP/reproduction.json" > "$RUNNER_TEMP/reproduction.txt" 2>&1
+          rc=$?
+          cat "$RUNNER_TEMP/reproduction.txt"
+          { echo "Commit $(git rev-parse --short HEAD)"; echo '```'; cat "$RUNNER_TEMP/reproduction.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+      - name: Keep the reproduction record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reproduction-${{ github.run_id }}
+          path: ${{ runner.temp }}/reproduction.*
+          if-no-files-found: ignore
+          retention-days: 30
