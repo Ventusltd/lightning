@@ -16,6 +16,7 @@ on:
       - ".github/workflows/backfill-lightning.yml"
       - ".github/workflows/backfill-parallel-lightning.yml"
       - ".github/workflows/verify-lightning-data.yml"
+      - ".github/workflows/collector-watchdog.yml"
       - "requirements.txt"
   pull_request:
     paths:
@@ -33,6 +34,7 @@ on:
       - ".github/workflows/backfill-lightning.yml"
       - ".github/workflows/backfill-parallel-lightning.yml"
       - ".github/workflows/verify-lightning-data.yml"
+      - ".github/workflows/collector-watchdog.yml"
       - "requirements.txt"
 
 jobs:

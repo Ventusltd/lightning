@@ -18,6 +18,7 @@ The satellite detects **optical lightning flashes**, including inside clouds. Ma
 - `reproduce.py`: standard-library-only recomputation of every index row, total, grid and the 12-month headline from the committed files, with a `summary_sha256`; `compare-day` checks a fresh EUMETSAT re-download of one date against the archive. Methods, coverage semantics, limitations and citation: [`docs/METHODS.md`](docs/METHODS.md).
 - `history-window.mjs`: DOM-free UTC date-window client (periods, navigation, budgeted tiered loading, coverage, UI states) for a GridAtlas implant to consume.
 - `.github/workflows/update-lightning.yml`: hourly update; the feed is committed first and separately from the archive, so an archive failure never blocks the feed; manual runs may set an explicit 1–48 hour lookback.
+- `ci/collector_health.py` and `.github/workflows/collector-watchdog.yml`: open, refresh or close the `collector-stale` issue (no heartbeat past `late_after_utc` + 90 min, or repeated failed runs) and the `feed-delivery` issue (raw.githubusercontent.com failing); see `docs/OPERATIONS.md`.
 - `tests/`: offline Python (`unittest`) and Node (`node --test`) contracts.
 
 ## Enable collection

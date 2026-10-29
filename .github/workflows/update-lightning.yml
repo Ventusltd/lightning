@@ -21,6 +21,7 @@ on:
 permissions:
   contents: write
   actions: read   # read this run's created_at for the heartbeat (queue time)
+  issues: write   # open/update/close the "collector-stale" issue (ci/collector_health.py)
 
 # The hourly feed's own group. NO other workflow may use it: the backfill has
 # `uk-lightning-backfill`, so a multi-hour backfill can never queue the hourly
@@ -182,7 +183,21 @@ jobs:
             'bash ci/replay-hourly-archive.sh' \
             data/status.json data/history
 
-      # 6. Make a failed collection or archive visible in the Actions UI even
+      # 6. Open, refresh or close the "collector-stale" issue from the status
+      #    just written (docs/OPERATIONS.md). A fresh heartbeat closes it on
+      #    recovery; 3+ consecutive failures (e.g. rejected EUMETSAT
+      #    credentials) open it. Monitoring never changes the run's outcome.
+      - name: Collector health issue (collector-stale)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE: update-lightning run ${{ github.run_id }}
+        run: |
+          python ci/collector_health.py --status data/status.json --issue \
+            --source "$SOURCE" --summary "$GITHUB_STEP_SUMMARY"
+
+      # 7. Make a failed collection or archive visible in the Actions UI even
       #    though the steps above were allowed to continue. A shard_lost
       #    integrity alert also turns the run red, AFTER healthy days and the
       #    status were committed, until `history.py recover` clears it.

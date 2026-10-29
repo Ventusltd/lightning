@@ -1,0 +1,49 @@
+name: UK lightning collector watchdog
+# Why this one scheduled workflow exists (docs/OPERATIONS.md, "Watchdog"):
+# the health check also runs at the end of every hourly run and in
+# verify-lightning-data.yml, but both only run when a writer has run. When the
+# GitHub cron AND the hourly nudge both stop, no writer runs, so no in-workflow
+# check can ever see the silence. This independent schedule reads the
+# committed data/status.json and opens the "collector-stale" issue once the
+# heartbeat is past late_after_utc + 90 min. It also probes the public
+# raw.githubusercontent.com path the map reads ("feed-delivery" issue).
+#
+# Tiny on purpose: sparse checkout of two files, stdlib Python already on the
+# runner (no setup-python, no pip), read-only contents, about 15 s a run. It
+# never collects, never commits and never dispatches another workflow. Two
+# slots an hour, away from :17/:47 (collector) and :29 (nudge), because
+# GitHub drops scheduled runs (28 Oct 2026: 10 of 48 collector slots ran).
+# A red watchdog run is a second alarm: GitHub e-mails scheduled-run failures
+# to the person who last edited this cron.
+on:
+  schedule:
+    - cron: "8,38 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uk-lightning-watchdog
+  cancel-in-progress: true
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: |
+            ci/collector_health.py
+            data/status.json
+          sparse-checkout-cone-mode: false
+      - name: Collector heartbeat and raw delivery (collector-stale, feed-delivery)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE: collector-watchdog run ${{ github.run_id }} (${{ github.event_name }})
+        run: |
+          python3 ci/collector_health.py --status data/status.json --issue --raw \
+            --fail-when-unhealthy --source "$SOURCE" --summary "$GITHUB_STEP_SUMMARY"
