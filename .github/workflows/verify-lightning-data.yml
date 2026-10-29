@@ -88,6 +88,9 @@ jobs:
   # also reports an hourly collector that has stopped. Only this job may write
   # issues; the data checks above stay read-only.
   health:
+    # Reads main's status and writes issues: never on a pull request (the PR's
+    # checker may not be on main yet, and PR tokens cannot write issues).
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
