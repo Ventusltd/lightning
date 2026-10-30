@@ -1,6 +1,6 @@
 {
  "schema": "uk-lightning-status.v1",
- "written_utc": "2026-10-30T04:32:56.507Z",
+ "written_utc": "2026-10-30T05:32:12.976Z",
  "health": "ok",
  "freshness": "ok",
  "integrity": {
@@ -10,15 +10,15 @@
   "quarantined_observations": 0,
   "source": "this_run"
  },
- "last_attempt_utc": "2026-10-30T04:31:37.696Z",
+ "last_attempt_utc": "2026-10-30T05:30:48.335Z",
  "last_attempt_outcome": "success",
  "last_error": null,
  "consecutive_failures": 0,
- "last_successful_run_utc": "2026-10-30T04:31:37.696Z",
- "last_successful_scan_start_utc": "2026-10-29T22:31:37.696Z",
- "last_successful_scan_end_utc": "2026-10-30T04:30:05.000Z",
- "last_query_start_utc": "2026-10-29T22:31:37.696Z",
- "last_query_end_utc": "2026-10-30T04:31:37.696Z",
+ "last_successful_run_utc": "2026-10-30T05:30:48.335Z",
+ "last_successful_scan_start_utc": "2026-10-29T23:30:48.335Z",
+ "last_successful_scan_end_utc": "2026-10-30T05:30:05.000Z",
+ "last_query_start_utc": "2026-10-29T23:30:48.335Z",
+ "last_query_end_utc": "2026-10-30T05:30:48.335Z",
  "last_lookback_hours": 6.0,
  "last_lookback_source": "status",
  "last_lookback_capped": false,
@@ -39,12 +39,6 @@
   "reasons": {}
  },
  "last_slots_examined_utc": [
-  "2026-10-29T22:30:05.000Z",
-  "2026-10-29T22:40:05.000Z",
-  "2026-10-29T22:50:05.000Z",
-  "2026-10-29T23:00:05.000Z",
-  "2026-10-29T23:10:05.000Z",
-  "2026-10-29T23:20:05.000Z",
   "2026-10-29T23:30:05.000Z",
   "2026-10-29T23:40:05.000Z",
   "2026-10-29T23:50:05.000Z",
@@ -74,16 +68,22 @@
   "2026-10-30T03:50:05.000Z",
   "2026-10-30T04:00:05.000Z",
   "2026-10-30T04:10:05.000Z",
-  "2026-10-30T04:20:05.000Z"
+  "2026-10-30T04:20:05.000Z",
+  "2026-10-30T04:30:05.000Z",
+  "2026-10-30T04:40:05.000Z",
+  "2026-10-30T04:50:05.000Z",
+  "2026-10-30T05:00:05.000Z",
+  "2026-10-30T05:10:05.000Z",
+  "2026-10-30T05:20:05.000Z"
  ],
  "last_scanned_ranges": [
   {
-   "start_utc": "2026-10-29T22:31:37.696Z",
-   "end_utc": "2026-10-30T04:30:05.000Z"
+   "start_utc": "2026-10-29T23:30:48.335Z",
+   "end_utc": "2026-10-30T05:30:05.000Z"
   }
  ],
  "last_unscanned_ranges": [],
- "last_tail_unobserved_seconds": 92,
+ "last_tail_unobserved_seconds": 43,
  "feed": {
   "features": 345,
   "total_before_display_cap": 345,
@@ -105,7 +105,7 @@
   ],
   "lost_days": [],
   "dropped_lost_day": 0,
-  "index_generated_utc": "2026-10-30T04:32:54.321Z"
+  "index_generated_utc": "2026-10-30T05:32:11.225Z"
  },
  "thresholds_hours": {
   "warn": 6,
@@ -118,27 +118,27 @@
    "17 * * * *",
    "47 * * * *"
   ],
-  "next_expected_run_utc": "2026-10-30T04:47:00.000Z",
-  "late_after_utc": "2026-10-30T06:01:37.696Z",
+  "next_expected_run_utc": "2026-10-30T05:47:00.000Z",
+  "late_after_utc": "2026-10-30T07:00:48.335Z",
   "this_run": {
    "trigger": "workflow_dispatch",
-   "run_id": "41003286810",
-   "run_created_utc": "2026-10-30T04:30:35.000Z",
-   "job_started_utc": "2026-10-30T04:30:45.000Z",
+   "run_id": "41008749040",
+   "run_created_utc": "2026-10-30T05:29:51.000Z",
+   "job_started_utc": "2026-10-30T05:30:01.000Z",
    "queued_minutes": 0.2,
-   "attempt_utc": "2026-10-30T04:31:37.696Z",
+   "attempt_utc": "2026-10-30T05:30:48.335Z",
    "outcome": "success"
   },
   "gap_before_this_run": {
-   "previous_attempt_utc": "2026-10-30T03:31:19.805Z",
+   "previous_attempt_utc": "2026-10-30T04:31:37.696Z",
    "previous_attempt_outcome": "success",
-   "minutes": 60.3,
-   "minutes_until_run_created": 59.3,
+   "minutes": 59.2,
+   "minutes_until_run_created": 58.2,
    "hourly_slots_without_a_run": 1,
    "cause": "on_time"
   },
-  "explanation": "Last collector run 30 Oct 04:31 UTC (workflow_dispatch, success). Previous run 30 Oct 03:31 UTC, 1 h 00 min earlier: on schedule.",
-  "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 30 Oct 04:31 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
+  "explanation": "Last collector run 30 Oct 05:30 UTC (workflow_dispatch, success). Previous run 30 Oct 04:31 UTC, 59 min earlier: on schedule.",
+  "if_late": "If now is past late_after_utc, no collector run has written a heartbeat since 30 Oct 05:30 UTC. GitHub's scheduler does not guarantee scheduled runs; the next run records the cause (scheduler delay or queue). Flashes in the gap are unknown, not zero."
  },
  "backfill": {
   "last_run_utc": "2026-10-28T19:59:39.764Z",
