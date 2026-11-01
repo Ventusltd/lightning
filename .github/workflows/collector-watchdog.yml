@@ -16,8 +16,8 @@ name: UK lightning collector watchdog
 # A red watchdog run is a second alarm: GitHub e-mails scheduled-run failures
 # to the person who last edited this cron.
 on:
-  schedule:
-    - cron: "8,38 * * * *"
+  # Schedule removed 1 Nov 2026: the collector is now manual-only, so a
+  # timed staleness check would always alarm. Run by hand if needed.
   workflow_dispatch:
 
 permissions:
