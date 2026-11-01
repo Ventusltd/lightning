@@ -1,16 +1,7 @@
 name: UK lightning optical flashes
 on:
-  schedule:
-    # Hourly. Each run searches a self-healing lookback window:
-    # max(6 h, now - last successful scan end + 30 min), capped at 48 h,
-    # so a late or failed run is caught up by the next one (GitHub cron
-    # drift of 5-141 min was observed; see docs/HISTORY_ONE_YEAR.md).
-    - cron: "17 * * * *"
-    # Fallback slot. GitHub's scheduler delays and drops runs (27 Oct 2026:
-    # only 2 of the 13 hourly slots from 03:17 to 15:17 UTC produced a run).
-    # The gate job skips this slot when the :17 run already succeeded, so a
-    # dropped :17 costs ~30 min instead of an hour or more.
-    - cron: "47 * * * *"
+  # Manual only (1 Nov 2026): run from the Actions tab when needed. The
+  # self-healing lookback covers up to 48 h; for longer gaps use backfill.
   workflow_dispatch:
     inputs:
       hours:
